@@ -1,7 +1,7 @@
 name: if_my_life_was_a_movie
 description: "A song-based mood journal with a conceptual sketch UI."
 publish_to: 'none'
-version: 0.1.0+1
+version: 1.0.0-beta+1
 
 environment:
   sdk: ^3.13.7
