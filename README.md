@@ -34,7 +34,7 @@ Welcome to the initial beta release of **If My Life Was a Movie**!
 ### 📥 Download & Install
 
 #### Android (.apk)
-1. Download **`ifmylifewasamovie-v1.0.0-beta** from the **Assets** section below.
+1. Download **ifmylifewasamovie-v1.0.0-beta** from the **Assets** section below.
 2. Open the file on your Android device.
 3. If prompted, allow "Install from unknown sources" for your browser/file manager.
 
