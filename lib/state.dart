@@ -342,6 +342,7 @@ class AppState extends ChangeNotifier {
   String? _privacyPin;
   bool isPrivacyUnlocked = false;
   bool _hasSeenIntro = false;
+  final Set<String> _seenIntroUsers = <String>{};
   bool get hasSeenIntro => _hasSeenIntro || demoMode;
   set hasSeenIntro(bool v) => _hasSeenIntro = v;
 
@@ -452,6 +453,7 @@ class AppState extends ChangeNotifier {
     user = u;
     demoMode = false;
     if (switching) {
+      _hasSeenIntro = _seenIntroUsers.contains(u.id);
       unawaited(_loadIntroSettings());
     }
     final meta = u.userMetadata;
@@ -2640,12 +2642,16 @@ class AppState extends ChangeNotifier {
         final raw = await file.readAsString();
         final decoded = jsonDecode(raw);
         if (decoded is Map<String, dynamic>) {
-          final users = (decoded['users'] as List?)?.toSet() ?? <dynamic>{};
-          final currentUid = user?.id;
-          if (currentUid != null && users.contains(currentUid)) {
-            hasSeenIntro = true;
-          } else if (decoded['seen'] == true) {
-            hasSeenIntro = true;
+          final users = decoded['users'];
+          if (users is List) {
+            _seenIntroUsers.addAll(users.whereType<String>());
+          }
+          final currentUid = user?.id ?? _sb.auth.currentSession?.user.id;
+          if (currentUid != null) {
+            _hasSeenIntro = _seenIntroUsers.contains(currentUid) ||
+                (_seenIntroUsers.isEmpty && decoded['seen'] == true);
+          } else if (_seenIntroUsers.isEmpty && decoded['seen'] == true) {
+            _hasSeenIntro = true;
           }
         }
       }
@@ -2653,19 +2659,27 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> completeIntro() async {
-    hasSeenIntro = true;
+    _hasSeenIntro = true;
+    final uid = user?.id;
+    if (uid != null) {
+      _seenIntroUsers.add(uid);
+    }
     notifyListeners();
+    unawaited(_persistIntroSeen());
+  }
+
+  Future<void> _persistIntroSeen() async {
     if (kIsWeb) return;
     try {
       final docs = await getApplicationDocumentsDirectory();
       final file = File('${docs.path}/intro_seen.json');
-      var users = <String>{};
+      final users = <String>{..._seenIntroUsers};
       if (await file.exists()) {
         try {
           final raw = await file.readAsString();
           final decoded = jsonDecode(raw);
           if (decoded is Map<String, dynamic> && decoded['users'] is List) {
-            users = (decoded['users'] as List).whereType<String>().toSet();
+            users.addAll((decoded['users'] as List).whereType<String>());
           }
         } catch (_) {}
       }
@@ -2682,7 +2696,8 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> resetIntro() async {
-    hasSeenIntro = false;
+    _hasSeenIntro = false;
+    _seenIntroUsers.clear();
     notifyListeners();
     if (kIsWeb) return;
     try {

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart' hide Ink;
 import 'package:go_router/go_router.dart';
 
@@ -553,7 +552,7 @@ class _IntroPageState extends State<IntroPage> {
                             children: [
                               const Icon(Icons.login, size: 18, color: Ink.paper),
                               const SizedBox(width: 8),
-                              Text('CONNECT YOUTUBE ACCOUNT', style: T.head(14)),
+                              Text('CONNECT YOUTUBE ACCOUNT', style: T.head(14, c: Ink.paper)),
                             ],
                           ),
                         ),
@@ -569,7 +568,7 @@ class _IntroPageState extends State<IntroPage> {
                             children: [
                               const Icon(Icons.movie, size: 18, color: Ink.paper),
                               const SizedBox(width: 8),
-                              Text('ENTER STUDIO · START DIRECTING', style: T.head(14)),
+                              Text('ENTER STUDIO · START DIRECTING', style: T.head(14, c: Ink.paper)),
                             ],
                           ),
                         ),
@@ -598,7 +597,7 @@ class _IntroPageState extends State<IntroPage> {
                     const SizedBox(height: 6),
                     Text(
                       'Yes, you can skip and start using the app right away!',
-                      style: T.body(14, FontWeight.bold),
+                      style: T.body(14, w: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     const DashedLine(),
@@ -745,7 +744,7 @@ class _IntroPageState extends State<IntroPage> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('NEXT', style: T.head(13)),
+                  Text('NEXT', style: T.head(13, c: Ink.paper)),
                   const SizedBox(width: 4),
                   const Icon(Icons.arrow_forward, size: 14, color: Ink.paper),
                 ],
@@ -759,7 +758,7 @@ class _IntroPageState extends State<IntroPage> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('ENTER 🎬', style: T.head(13)),
+                  Text('ENTER 🎬', style: T.head(13, c: Ink.paper)),
                 ],
               ),
             ),

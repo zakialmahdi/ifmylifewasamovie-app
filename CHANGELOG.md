@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Privacy Lock**: PIN/passcode gate to safeguard personal journal entries.
 - **Daily Prompts & Reminders**: Local notifications prompting daily mood logging and song selection.
 - **Supabase Authentication**: Secure cloud sync with email and Google OAuth support.
+- **Storyboard Onboarding Carousel**: Interactive 4-slide guide introducing the app and offering an upfront YouTube Session Bridge setup with a skip option.
 
 ### In Progress / Coming Soon
 - **Zine Export**: Printable, fold-out movie booklet generator compiling your monthly/seasonal scenes.

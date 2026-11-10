@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:if_my_life_was_a_movie/router.dart';
 import 'package:if_my_life_was_a_movie/state.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _FakeBuildContext extends Fake implements BuildContext {}
 
@@ -139,12 +140,14 @@ void main() {
   test('Authenticated user who has not seen intro is redirected to /intro before /', () {
     app.isRecoveringPassword = false;
     app.demoMode = false;
-    // Simulate authenticated user
-    app.name = 'tester';
+    app.user = const User(
+      id: 'test-user-id',
+      appMetadata: <String, dynamic>{},
+      userMetadata: <String, dynamic>{},
+      aud: 'authenticated',
+      createdAt: '2026-01-01T00:00:00Z',
+    );
     app.hasSeenIntro = false;
-    // Set a dummy user to authenticate without demoMode
-    app.enterDemoMode();
-    app.hasSeenIntro = false; // explicitly override for testing intro flow
     expect(app.isAuthenticated, isTrue);
     expect(app.hasSeenIntro, isFalse);
 
@@ -157,6 +160,7 @@ void main() {
       pageKey: const ValueKey('home'),
     );
     expect(authRedirect(fakeContext, homeState), equals('/intro'));
+    app.user = null;
   });
 
   test('Authenticated user who has completed intro accesses / directly', () {
