@@ -1,0 +1,42 @@
+name: if_my_life_was_a_movie
+description: "A song-based mood journal with a conceptual sketch UI."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Pinned to 22.x: v23+ requires compileSdk 37 / AGP 9.1.1+.
+  flutter_inappwebview: ^6.1.5
+  flutter_local_notifications: ^22.0.0
+  flutter_timezone: ^5.1.1
+  flutter_web_plugins:
+    sdk: flutter
+  go_router: ^18.1.3
+  google_fonts: ^9.0.0
+  google_sign_in: ^7.2.0
+  http: ^1.6.0
+  image_picker: ^1.2.4
+  just_audio: ^0.10.6
+  path: ^1.9.1
+  path_provider: ^2.1.6
+  supabase_flutter: ^2.18.3
+  timezone: ^0.11.2
+  url_launcher: ^6.3.3
+  youtube_explode_dart: ^3.1.0
+  # If YouTube pushes a breaking signature update before a new pub.dev release,
+  # replace the line above with the active GitHub branch:
+  # youtube_explode_dart:
+  #   git:
+  #     url: https://github.com/Hexer10/youtube_explode_dart.git
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

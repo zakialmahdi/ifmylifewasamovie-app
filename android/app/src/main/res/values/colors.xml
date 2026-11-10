@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sketch_bg">#E9E7E0</color>
+    <color name="sketch_paper">#F3F2EC</color>
+    <color name="sketch_ink">#2A2A2A</color>
+    <color name="sketch_grey">#C8C5BC</color>
+    <color name="sketch_faint">#BDBAB1</color>
+    <color name="sketch_soft">#6F6C65</color>
+</resources>

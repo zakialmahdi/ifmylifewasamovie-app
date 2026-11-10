@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Dedicated High-Resolution Splash Screen Emblem (288dp x 288dp, 1024x1024 viewport).
+  Matches Android 12+ SplashScreen API native 288dp icon dimensions so SystemUI
+  never upscales the 108dp launcher icon, keeping all artwork inside the 192dp
+  safe circle with crisp hairline crosshatching, vinyl grooves, and pencil strokes.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+
+    <!-- ==================== 1. SLIDING VINYL RECORD (RIGHT) ==================== -->
+
+    <!-- Solid ink offset shadow behind vinyl -->
+    <path
+        android:fillColor="#2A2A2A"
+        android:pathData="M456,526 a168,168 0 1,0 336,0 a168,168 0 1,0 -336,0 Z" />
+
+    <!-- Paper outer rim + main vinyl disc -->
+    <path
+        android:fillColor="#F3F2EC"
+        android:strokeColor="#2A2A2A"
+        android:strokeWidth="6"
+        android:pathData="M444,512 a168,168 0 1,0 336,0 a168,168 0 1,0 -336,0 Z" />
+    <path
+        android:fillColor="#2A2A2A"
+        android:pathData="M452,512 a160,160 0 1,0 320,0 a160,160 0 1,0 -320,0 Z" />
+
+    <!-- Concentric vinyl grooves -->
+    <path
+        android:strokeColor="#52F3F2EC"
+        android:strokeWidth="2.4"
+        android:pathData="
+            M472,512 a140,140 0 1,0 280,0 a140,140 0 1,0 -280,0 Z
+            M492,512 a120,120 0 1,0 240,0 a120,120 0 1,0 -240,0 Z
+            M512,512 a100,100 0 1,0 200,0 a100,100 0 1,0 -200,0 Z
+            M532,512 a80,80 0 1,0 160,0 a80,80 0 1,0 -160,0 Z" />
+
+    <!-- Curved vinyl sheen highlights -->
+    <path
+        android:strokeColor="#99F3F2EC"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="
+            M662,388 A134,134 0 0,1 740,468
+            M648,620 A118,118 0 0,0 722,554" />
+
+    <!-- Vinyl center label (#C8C5BC) + spindle hole -->
+    <path
+        android:fillColor="#C8C5BC"
+        android:strokeColor="#F3F2EC"
+        android:strokeWidth="3.5"
+        android:pathData="M558,512 a54,54 0 1,0 108,0 a54,54 0 1,0 -108,0 Z" />
+    <path
+        android:strokeColor="#2A2A2A"
+        android:strokeWidth="2.5"
+        android:pathData="M570,512 a42,42 0 1,0 84,0 a42,42 0 1,0 -84,0 Z" />
+    <path
+        android:fillColor="#2A2A2A"
+        android:pathData="M601,512 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 Z" />
+
+    <!-- ==================== 2. ZINE ALBUM SLEEVE CARD (LEFT-CENTER) ==================== -->
+
+    <!-- Signature SketchBox solid ink drop shadow -->
+    <path
+        android:fillColor="#2A2A2A"
+        android:pathData="M260,338 L640,338 L640,718 L260,718 Z" />
+
+    <!-- Warm cream paper sleeve base (Ink.paper #F3F2EC) -->
+    <path
+        android:fillColor="#F3F2EC"
+        android:pathData="M244,322 L624,322 L624,702 L244,702 Z" />
+
+    <!-- Subtle lined notebook paper lines inside sleeve -->
+    <path
+        android:strokeColor="#2E7C8796"
+        android:strokeWidth="2.2"
+        android:pathData="
+            M246,368 L622,368
+            M246,416 L622,416
+            M246,464 L622,464
+            M246,512 L622,512
+            M246,560 L622,560
+            M246,608 L622,608
+            M246,656 L622,656" />
+
+    <!-- Fine 20-step crosshatch mat (254..614 x 332..692, 360x360) -->
+    <!-- Up-right diagonals (part 1) -->
+    <path
+        android:strokeColor="#722A2A2A"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round"
+        android:pathData="
+            M254,350 L272,332
+            M254,368 L290,332
+            M254,386 L308,332
+            M254,404 L326,332
+            M254,422 L344,332
+            M254,440 L362,332
+            M254,458 L380,332
+            M254,476 L398,332
+            M254,494 L416,332
+            M254,512 L434,332
+            M254,530 L452,332
+            M254,548 L470,332
+            M254,566 L488,332
+            M254,584 L506,332
+            M254,602 L524,332
+            M254,620 L542,332
+            M254,638 L560,332
+            M254,656 L578,332
+            M254,674 L596,332
+            M254,692 L614,332" />
+
+    <!-- Up-right diagonals (part 2) -->
+    <path
+        android:strokeColor="#722A2A2A"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round"
+        android:pathData="
+            M272,692 L614,350
+            M290,692 L614,368
+            M308,692 L614,386
+            M326,692 L614,404
+            M344,692 L614,422
+            M362,692 L614,440
+            M380,692 L614,458
+            M398,692 L614,476
+            M416,692 L614,494
+            M434,692 L614,512
+            M452,692 L614,530
+            M470,692 L614,548
+            M488,692 L614,566
+            M506,692 L614,584
+            M524,692 L614,602
+            M542,692 L614,620
+            M560,692 L614,638
+            M578,692 L614,656
+            M596,692 L614,674" />
+
+    <!-- Down-right diagonals (part 1) -->
+    <path
+        android:strokeColor="#722A2A2A"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round"
+        android:pathData="
+            M254,674 L272,692
+            M254,656 L290,692
+            M254,638 L308,692
+            M254,620 L326,692
+            M254,602 L344,692
+            M254,584 L362,692
+            M254,566 L380,692
+            M254,548 L398,692
+            M254,530 L416,692
+            M254,512 L434,692
+            M254,494 L452,692
+            M254,476 L470,692
+            M254,458 L488,692
+            M254,440 L506,692
+            M254,422 L524,692
+            M254,404 L542,692
+            M254,386 L560,692
+            M254,368 L578,692
+            M254,350 L596,692
+            M254,332 L614,692" />
+
+    <!-- Down-right diagonals (part 2) -->
+    <path
+        android:strokeColor="#722A2A2A"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round"
+        android:pathData="
+            M272,332 L614,674
+            M290,332 L614,656
+            M308,332 L614,638
+            M326,332 L614,620
+            M344,332 L614,602
+            M362,332 L614,584
+            M380,332 L614,566
+            M398,332 L614,548
+            M416,332 L614,530
+            M434,332 L614,512
+            M452,332 L614,494
+            M470,332 L614,476
+            M488,332 L614,458
+            M506,332 L614,440
+            M524,332 L614,422
+            M542,332 L614,404
+            M560,332 L614,386
+            M578,332 L614,368
+            M596,332 L614,350" />
+
+    <!-- ==================== 3. CENTRAL CREAM STAGE & CLAPPERBOARD ==================== -->
+
+    <!-- Central paper cutout stage (316..552 x 394..630) -->
+    <path
+        android:fillColor="#F3F2EC"
+        android:strokeColor="#2A2A2A"
+        android:strokeWidth="5.5"
+        android:strokeLineJoin="round"
+        android:pathData="M316,394 L552,394 L552,630 L316,630 Z" />
+
+    <!-- Handmade corner overshoot ticks on inner stage -->
+    <path
+        android:strokeColor="#2A2A2A"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:pathData="
+            M304,394 L564,394
+            M304,630 L564,630
+            M316,382 L316,642
+            M552,382 L552,642" />
+
+    <!-- Clapperboard lower slate body -->
+    <path
+        android:fillColor="#F3F2EC"
+        android:strokeColor="#2A2A2A"
+        android:strokeWidth="5.2"
+        android:strokeLineJoin="round"
+        android:pathData="M350,468 L518,468 L518,598 L350,598 Z" />
+
+    <!-- Clapperboard lower clap bar + angled paper stripes -->
+    <path
+        android:fillColor="#2A2A2A"
+        android:pathData="M350,468 L518,468 L518,492 L350,492 Z" />
+    <path
+        android:strokeColor="#F3F2EC"
+        android:strokeWidth="9.5"
+        android:strokeLineCap="butt"
+        android:pathData="
+            M378,492 L392,468
+            M416,492 L430,468
+            M454,492 L468,468
+            M492,492 L506,468" />
+    <path
+        android:strokeColor="#2A2A2A"
+        android:strokeWidth="4.5"
+        android:pathData="M350,492 L518,492" />
+
+    <!-- Clapperboard tilted upper stick (open take) + stripes -->
+    <path
+        android:fillColor="#2A2A2A"
+        android:strokeColor="#2A2A2A"
+        android:strokeWidth="3.5"
+        android:strokeLineJoin="round"
+        android:pathData="M348,440 L514,414 L518,438 L352,464 Z" />
+    <path
+        android:strokeColor="#F3F2EC"
+        android:strokeWidth="9.5"
+        android:strokeLineCap="butt"
+        android:pathData="
+            M376,436 L388,458
+            M414,430 L426,452
+            M452,424 L464,446
+            M490,418 L502,440" />
+
+    <!-- Clapperboard left hinge plate + rivets -->
+    <path
+        android:fillColor="#2A2A2A"
+        android:strokeColor="#F3F2EC"
+        android:strokeWidth="2.5"
+        android:strokeLineJoin="round"
+        android:pathData="M346,440 L376,456 L346,488 Z" />
+    <path
+        android:fillColor="#F3F2EC"
+        android:pathData="
+            M352,456 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0 Z
+            M352,474 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0 Z" />
+
+    <!-- Handwritten slate rule marks -->
+    <path
+        android:strokeColor="#552A2A2A"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="
+            M366,508 L398,508
+            M366,520 L388,520
+            M366,584 L502,584" />
+
+    <!-- Soundtrack beamed eighth-notes (♫) centered on slate -->
+    <path
+        android:fillColor="#2A2A2A"
+        android:pathData="
+            M394,568 a15.5,11 -20 1,0 29,-10.5 a15.5,11 -20 1,0 -29,10.5 Z
+            M444,559 a15.5,11 -20 1,0 29,-10.5 a15.5,11 -20 1,0 -29,10.5 Z" />
+    <path
+        android:strokeColor="#2A2A2A"
+        android:strokeWidth="6.5"
+        android:strokeLineCap="round"
+        android:pathData="
+            M420,560 L420,512
+            M470,551 L470,503" />
+    <path
+        android:fillColor="#2A2A2A"
+        android:pathData="M417,509 L473,500 L473,514 L417,523 Z" />
+    <path
+        android:strokeColor="#2A2A2A"
+        android:strokeWidth="4.2"
+        android:strokeLineCap="round"
+        android:pathData="M420,528 L470,519" />
+
+    <!-- ==================== 4. OUTER SKETCH FRAME & TAGBOX TAB ==================== -->
+
+    <!-- Primary hand-drawn SketchBox ink outline with overshooting corners -->
+    <path
+        android:strokeColor="#2A2A2A"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="
+            M234,323 Q434,319 634,323
+            M625,312 Q622,512 625,712
+            M634,701 Q434,705 234,701
+            M243,712 Q246,512 243,312" />
+
+    <!-- Secondary pencil graphite pass -->
+    <path
+        android:strokeColor="#662A2A2A"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="
+            M238,320 Q434,325 630,321
+            M622,316 Q627,512 622,708
+            M630,704 Q434,699 238,703
+            M246,708 Q241,512 246,316" />
+
+    <!-- Top-left TagBox ticket tab ("SCENE 01" zine tab style) -->
+    <path
+        android:fillColor="#2A2A2A"
+        android:strokeColor="#F3F2EC"
+        android:strokeWidth="2.5"
+        android:strokeLineJoin="round"
+        android:pathData="M276,302 L416,302 L416,338 L276,338 Z" />
+    <path
+        android:strokeColor="#F3F2EC"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="M294,320 L310,320 M324,320 L398,320" />
+</vector>
