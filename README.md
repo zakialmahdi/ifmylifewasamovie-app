@@ -50,4 +50,4 @@ This is an early preview build aimed at gathering feedback on playback stability
 
 Found a bug or have ideas? Please open an issue on [GitHub Issues](https://github.com/zakialmahdi/ifmylifewasamovie-app/issues).
 
-Thank you for being part of the first audience! 🍿# 🎬 If My Life Was a Movie — v1.0.0-beta ("The First Cut")
+Thank you for being part of the first audience! 🍿
