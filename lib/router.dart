@@ -5,6 +5,7 @@ import 'pages/auth_page.dart';
 import 'pages/calendar_page.dart';
 import 'pages/friends_page.dart';
 import 'pages/home_page.dart';
+import 'pages/intro_page.dart';
 import 'pages/reset_password_page.dart';
 import 'pages/settings_page.dart';
 import 'sketch.dart';
@@ -18,6 +19,7 @@ String? authRedirect(BuildContext context, GoRouterState state) {
   final location = state.matchedLocation;
   final isAuthRoute = location == '/auth';
   final isResetRoute = location == '/reset-password';
+  final isIntroRoute = location == '/intro';
 
   // 1. Password recovery takes precedence
   if (app.isRecoveringPassword && !isResetRoute) {
@@ -25,9 +27,9 @@ String? authRedirect(BuildContext context, GoRouterState state) {
   }
 
   // 2. Unauthenticated user protection:
-  // Any route other than /auth and /reset-password requires authentication.
+  // Any route other than /auth, /reset-password, and /intro requires authentication.
   if (!authed) {
-    if (!isAuthRoute && !isResetRoute) {
+    if (!isAuthRoute && !isResetRoute && !isIntroRoute) {
       final target = state.uri.toString();
       if (target == '/' || target.isEmpty) {
         return '/auth';
@@ -37,7 +39,15 @@ String? authRedirect(BuildContext context, GoRouterState state) {
     return null;
   }
 
-  // 3. Authenticated user visiting /auth or /reset-password (when not in recovery flow):
+  // 3. Authenticated user who hasn't completed onboarding/intro:
+  // Show intro carousel before access to the home screen.
+  if (!app.hasSeenIntro) {
+    if (isAuthRoute || isResetRoute || location == '/') {
+      return '/intro';
+    }
+  }
+
+  // 4. Authenticated user visiting /auth or /reset-password (when not in recovery flow):
   // Redirect to requested original destination or default home (/).
   if (isAuthRoute) {
     final from = state.uri.queryParameters['from'];
@@ -83,6 +93,17 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const PaperScaffold(
         child: ResetPasswordPage(),
       ),
+    ),
+
+    // Onboarding / Story carousel walkthrough
+    GoRoute(
+      path: '/intro',
+      builder: (context, state) {
+        final replay = state.uri.queryParameters['replay'] == 'true';
+        return PaperScaffold(
+          child: IntroPage(isReplay: replay),
+        );
+      },
     ),
 
     // Protected application shell with bottom SketchNav

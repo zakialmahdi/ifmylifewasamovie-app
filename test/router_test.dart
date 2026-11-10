@@ -135,4 +135,61 @@ void main() {
     expect(app.demoMode, isFalse);
     expect(app.user, isNull);
   });
+
+  test('Authenticated user who has not seen intro is redirected to /intro before /', () {
+    app.isRecoveringPassword = false;
+    app.demoMode = false;
+    // Simulate authenticated user
+    app.name = 'tester';
+    app.hasSeenIntro = false;
+    // Set a dummy user to authenticate without demoMode
+    app.enterDemoMode();
+    app.hasSeenIntro = false; // explicitly override for testing intro flow
+    expect(app.isAuthenticated, isTrue);
+    expect(app.hasSeenIntro, isFalse);
+
+    final homeState = GoRouterState(
+      appRouter.configuration,
+      uri: Uri.parse('/'),
+      matchedLocation: '/',
+      fullPath: '/',
+      pathParameters: const <String, String>{},
+      pageKey: const ValueKey('home'),
+    );
+    expect(authRedirect(fakeContext, homeState), equals('/intro'));
+  });
+
+  test('Authenticated user who has completed intro accesses / directly', () {
+    app.isRecoveringPassword = false;
+    app.enterDemoMode();
+    app.hasSeenIntro = true;
+    expect(app.isAuthenticated, isTrue);
+    expect(app.hasSeenIntro, isTrue);
+
+    final homeState = GoRouterState(
+      appRouter.configuration,
+      uri: Uri.parse('/'),
+      matchedLocation: '/',
+      fullPath: '/',
+      pathParameters: const <String, String>{},
+      pageKey: const ValueKey('home'),
+    );
+    expect(authRedirect(fakeContext, homeState), isNull);
+  });
+
+  test('Intro replay is allowed for authenticated user', () {
+    app.isRecoveringPassword = false;
+    app.enterDemoMode();
+    app.hasSeenIntro = true;
+
+    final introState = GoRouterState(
+      appRouter.configuration,
+      uri: Uri.parse('/intro?replay=true'),
+      matchedLocation: '/intro',
+      fullPath: '/intro',
+      pathParameters: const <String, String>{},
+      pageKey: const ValueKey('intro'),
+    );
+    expect(authRedirect(fakeContext, introState), isNull);
+  });
 }

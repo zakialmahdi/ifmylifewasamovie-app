@@ -341,6 +341,9 @@ class AppState extends ChangeNotifier {
   bool privacyLock = false;
   String? _privacyPin;
   bool isPrivacyUnlocked = false;
+  bool _hasSeenIntro = false;
+  bool get hasSeenIntro => _hasSeenIntro || demoMode;
+  set hasSeenIntro(bool v) => _hasSeenIntro = v;
 
   bool get hasPrivacyPin => _privacyPin != null && _privacyPin!.length == 4;
   bool get isPrivacyLocked => privacyLock && hasPrivacyPin && !isPrivacyUnlocked;
@@ -416,6 +419,7 @@ class AppState extends ChangeNotifier {
     await _loadReminderSettings();
     await _loadSharingSettings();
     await _loadNotifiedInvites();
+    await _loadIntroSettings();
     unawaited(_rescheduleReminders());
 
     await _authSub?.cancel();
@@ -447,6 +451,9 @@ class AppState extends ChangeNotifier {
     final switching = user?.id != u.id;
     user = u;
     demoMode = false;
+    if (switching) {
+      unawaited(_loadIntroSettings());
+    }
     final meta = u.userMetadata;
     final metaName = ((meta?['display_name'] ??
             meta?['full_name'] ??
@@ -481,6 +488,7 @@ class AppState extends ChangeNotifier {
     unawaited(ReminderService.instance.cancelAll());
     user = null;
     demoMode = false;
+    hasSeenIntro = false;
     syncing = false;
     dbReady = false;
     isRecoveringPassword = false;
@@ -655,6 +663,7 @@ class AppState extends ChangeNotifier {
         'sharing_settings.json',
         'notified_invites.json',
         'reminder_settings.json',
+        'intro_seen.json',
       ];
       for (final fileName in fileNames) {
         final f = File('${docs.path}/$fileName');
@@ -769,6 +778,7 @@ class AppState extends ChangeNotifier {
   void enterDemoMode() {
     user = null;
     demoMode = true;
+    hasSeenIntro = true;
     dbReady = false;
     tab = 0;
     name = 'maya';
@@ -2617,6 +2627,71 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     await _persistPrivacySettings();
     unawaited(_syncProfileFields(<String, dynamic>{'privacy_lock': false}));
+  }
+
+  // ── Intro & Onboarding Carousel ──
+
+  Future<void> _loadIntroSettings() async {
+    if (kIsWeb) return;
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      final file = File('${docs.path}/intro_seen.json');
+      if (await file.exists()) {
+        final raw = await file.readAsString();
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) {
+          final users = (decoded['users'] as List?)?.toSet() ?? <dynamic>{};
+          final currentUid = user?.id;
+          if (currentUid != null && users.contains(currentUid)) {
+            hasSeenIntro = true;
+          } else if (decoded['seen'] == true) {
+            hasSeenIntro = true;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> completeIntro() async {
+    hasSeenIntro = true;
+    notifyListeners();
+    if (kIsWeb) return;
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      final file = File('${docs.path}/intro_seen.json');
+      var users = <String>{};
+      if (await file.exists()) {
+        try {
+          final raw = await file.readAsString();
+          final decoded = jsonDecode(raw);
+          if (decoded is Map<String, dynamic> && decoded['users'] is List) {
+            users = (decoded['users'] as List).whereType<String>().toSet();
+          }
+        } catch (_) {}
+      }
+      if (user?.id != null) {
+        users.add(user!.id);
+      }
+      final data = <String, dynamic>{
+        'seen': true,
+        'users': users.toList(),
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+      await file.writeAsString(jsonEncode(data), flush: true);
+    } catch (_) {}
+  }
+
+  Future<void> resetIntro() async {
+    hasSeenIntro = false;
+    notifyListeners();
+    if (kIsWeb) return;
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      final file = File('${docs.path}/intro_seen.json');
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {}
   }
 }
 

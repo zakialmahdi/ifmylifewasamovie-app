@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' hide Ink;
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/youtube_music_service.dart';
@@ -1472,10 +1473,17 @@ class _SettingsPageState extends State<SettingsPage> {
               () => showSuggestionDialog(context),
             )),
             r(_navRow(
+              Icons.auto_stories_outlined,
+              'How this app works',
+              'Story guide & YouTube setup carousel',
+              81,
+              () => context.push('/intro?replay=true'),
+            )),
+            r(_navRow(
               Icons.help_outline,
               'About this app',
               'IF MY LIFE WAS A MOVIE... · dev: zakialmahdi',
-              81,
+              82,
               () => _about(context),
             )),
 
