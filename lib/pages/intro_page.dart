@@ -6,9 +6,9 @@ import '../sketch.dart';
 import '../state.dart';
 import '../widgets/youtube_login_sheet.dart';
 
-/// An interactive, sketchbook-themed carousel walkthrough explaining the core
-/// concept of "If My Life Was A Movie" and providing an upfront YouTube session
-/// bridge setup before entering the main home screen.
+/// A clean, sketchbook-styled carousel shown once on a newly registered user's
+/// first session (or replayed from Settings) explaining the core workflow and
+/// offering an upfront YouTube connection with an explicit skip option.
 class IntroPage extends StatefulWidget {
   final bool isReplay;
 
@@ -25,6 +25,13 @@ class _IntroPageState extends State<IntroPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
+  static final Song _sampleSong = Song(
+    'Midnight City',
+    'M83',
+    244,
+    Hatch.diagonal,
+  );
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -34,28 +41,26 @@ class _IntroPageState extends State<IntroPage> {
   void _nextPage() {
     if (_currentPage < 3) {
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
       );
-    } else {
-      _finishAndEnter();
     }
   }
 
   void _prevPage() {
     if (_currentPage > 0) {
       _pageController.previousPage(
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
       );
     }
   }
 
-  void _jumpToFinish() {
+  void _jumpToConnect() {
     _pageController.animateToPage(
       3,
-      duration: const Duration(milliseconds: 350),
-      curve: Curves.easeInOut,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
     );
   }
 
@@ -70,7 +75,7 @@ class _IntroPageState extends State<IntroPage> {
     if (cookies != null && cookies.isNotEmpty) {
       await musicService.connectYouTube(cookies);
       if (mounted) {
-        showNote(context, 'YouTube session connected · bot blocks resolved ✓');
+        showNote(context, 'YouTube connected · bot checks resolved ✓');
         setState(() {});
       }
     }
@@ -101,10 +106,10 @@ class _IntroPageState extends State<IntroPage> {
                 physics: const BouncingScrollPhysics(),
                 onPageChanged: (idx) => setState(() => _currentPage = idx),
                 children: [
-                  _buildSlideOne(),
-                  _buildSlideTwo(),
-                  _buildSlideThree(),
-                  _buildSlideFour(),
+                  _buildSlide1Song(),
+                  _buildSlide2Mood(),
+                  _buildSlide3CalendarAndFriends(),
+                  _buildSlide4YouTube(),
                 ],
               ),
             ),
@@ -115,18 +120,11 @@ class _IntroPageState extends State<IntroPage> {
     );
   }
 
-  // ───────────────────────── Top App Bar ─────────────────────────
+  // ───────────────────────── Top Bar ─────────────────────────
 
   Widget _buildTopBar() {
-    final actTitles = [
-      'ACT I · THE CONCEPT',
-      'ACT II · THE SOUNDTRACK',
-      'ACT III · THE CAST & REEL',
-      'FINALE · SEAMLESS SETUP',
-    ];
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -134,599 +132,398 @@ class _IntroPageState extends State<IntroPage> {
             children: [
               if (widget.isReplay)
                 Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Ink.ink),
-                    onPressed: () => Navigator.of(context).maybePop(),
+                  padding: const EdgeInsets.only(right: 10),
+                  child: SketchTap(
+                    onTap: () => Navigator.of(context).maybePop(),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.close, size: 20, color: Ink.ink),
+                    ),
                   ),
                 ),
-              SketchBox(
-                seed: 11,
-                fill: Ink.paper,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              Note('${_currentPage + 1} / 4', size: 15),
+            ],
+          ),
+          if (_currentPage < 3)
+            SketchTap(
+              onTap: _jumpToConnect,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 child: Text(
-                  actTitles[_currentPage],
-                  style: T.head(12, c: Ink.soft),
+                  'skip',
+                  style: T.note(16, c: Ink.soft).copyWith(
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            )
+          else
+            const SizedBox(height: 28),
+        ],
+      ),
+    );
+  }
+
+  // ───────────────────────── Slide Frame ─────────────────────────
+
+  Widget _slideFrame({
+    required Widget visual,
+    required String title,
+    required String subtitle,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight - 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 330),
+                child: visual,
+              ),
+              const SizedBox(height: 32),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: T.head(27),
+              ),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 300),
+                child: Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: T.body(16, c: Ink.soft),
                 ),
               ),
             ],
           ),
-          if (_currentPage < 3 && !widget.isReplay)
-            SketchTap(
-              onTap: _jumpToFinish,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  children: [
-                    Text(
-                      'SKIP TO SETUP',
-                      style: T.head(12, c: Ink.soft).copyWith(
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.arrow_forward_ios, size: 10, color: Ink.soft),
-                  ],
-                ),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
 
-  // ───────────────────────── Slide 1: Life is a Movie ─────────────────────────
+  // ───────────────────────── Slide 1: One Song A Day ─────────────────────────
 
-  Widget _buildSlideOne() {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 8),
-          Center(
-            child: Text(
-              'YOUR LIFE IS A MOVIE',
-              textAlign: TextAlign.center,
-              style: T.head(28),
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Center(
-            child: Note(
-              'one song a day · one tiny scene · your personal cinema',
-              size: 15,
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          // Hand-drawn Clapperboard illustration
-          SketchBox(
-            seed: 71,
-            fill: Ink.paper,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildSlide1Song() {
+    return _slideFrame(
+      visual: TagBox(
+        label: 'scene #1',
+        right: true,
+        seed: 11,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.movie_creation_outlined, size: 22, color: Ink.ink),
-                        const SizedBox(width: 8),
-                        Text('PRODUCTION REEL', style: T.head(15)),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Ink.ink, width: 1.2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text('24 FPS', style: T.head(11)),
-                    ),
-                  ],
+                SongArtBox(song: _sampleSong, size: 50),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('MIDNIGHT CITY', style: T.head(17), overflow: TextOverflow.ellipsis),
+                      const Note('M83 · 4:04', size: 14),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 10),
-                const DashedLine(),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('SCENE', style: T.head(11, c: Ink.soft)),
-                          Text('TODAY', style: T.head(18)),
-                        ],
-                      ),
-                    ),
-                    Container(width: 1, height: 28, color: Ink.grey),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('TAKE', style: T.head(11, c: Ink.soft)),
-                          Text('01', style: T.head(18)),
-                        ],
-                      ),
-                    ),
-                    Container(width: 1, height: 28, color: Ink.grey),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('DIRECTOR', style: T.head(11, c: Ink.soft)),
-                          Text(
-                            app.name.isNotEmpty ? app.name.toUpperCase() : 'YOU',
-                            style: T.head(18),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                const SketchPlayIcon(playing: false, size: 22, color: Ink.ink),
               ],
             ),
-          ),
-
-          const SizedBox(height: 20),
-          _buildBulletItem(
-            icon: Icons.auto_stories_outlined,
-            title: 'Cinematic Journaling',
-            desc: 'Forget tedious checklists. Frame each day as an intentional scene in your unfolding story.',
-          ),
-          const SizedBox(height: 12),
-          _buildBulletItem(
-            icon: Icons.photo_camera_outlined,
-            title: 'Visual Keepsakes',
-            desc: 'Attach candid snapshots to capture the atmosphere and aesthetic of the moment.',
-          ),
-          const SizedBox(height: 12),
-          _buildBulletItem(
-            icon: Icons.draw_outlined,
-            title: 'Hand-Drawn Sketch Interface',
-            desc: 'Crafted with tactile paper, ink textures, and notebook margins for an intimate feel.',
-          ),
-          const SizedBox(height: 12),
-        ],
-      ),
-    );
-  }
-
-  // ───────────────────────── Slide 2: Soundtrack ─────────────────────────
-
-  Widget _buildSlideTwo() {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 8),
-          Center(
-            child: Text(
-              'SCORE EVERY SCENE',
-              textAlign: TextAlign.center,
-              style: T.head(28),
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Center(
-            child: Note(
-              'music anchors memories deeper than plain words',
-              size: 15,
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          // Cassette / Vinyl illustration card
-          SketchBox(
-            seed: 82,
-            fill: Ink.paper,
-            padding: const EdgeInsets.all(16),
-            child: Column(
+            const SizedBox(height: 12),
+            const DashedLine(),
+            const SizedBox(height: 10),
+            Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.album_outlined, size: 24, color: Ink.ink),
-                    const SizedBox(width: 8),
-                    Text('ORIGINAL MOTION PICTURE SOUNDTRACK', style: T.head(13)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SketchBox(
-                  seed: 83,
-                  fill: Ink.bg,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.music_note, size: 20, color: Ink.ink),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('TODAY\'S THEME SONG', style: T.head(13)),
-                            const Note('YouTube Music · streaming directly in-app', size: 12),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.play_circle_fill, size: 28, color: Ink.ink),
-                    ],
+                const Icon(Icons.search, size: 16, color: Ink.soft),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'search YouTube Music...',
+                    style: T.note(15),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
-          ),
-
-          const SizedBox(height: 20),
-          _buildBulletItem(
-            icon: Icons.search,
-            title: 'YouTube Music Search',
-            desc: 'Find any song, artist, or soundtrack instantaneously without leaving the journal.',
-          ),
-          const SizedBox(height: 12),
-          _buildBulletItem(
-            icon: Icons.replay_outlined,
-            title: 'Emotional Time Machine',
-            desc: 'Tap play weeks or months later to instantly reignite the exact mood of that day.',
-          ),
-          const SizedBox(height: 12),
-          _buildBulletItem(
-            icon: Icons.queue_music_outlined,
-            title: 'Your Life Playlist',
-            desc: 'Build an evolving, living tracklist documenting the soundtrack of your years.',
-          ),
-          const SizedBox(height: 12),
-        ],
+          ],
+        ),
       ),
+      title: 'ONE SONG A DAY',
+      subtitle: 'pick one song that matches the mood of your day.',
     );
   }
 
-  // ───────────────────────── Slide 3: The Cast & Storyboard ─────────────────────────
+  // ───────────────────────── Slide 2: Mood & Line ─────────────────────────
 
-  Widget _buildSlideThree() {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 8),
-          Center(
-            child: Text(
-              'THE CAST & TIMELINE',
-              textAlign: TextAlign.center,
-              style: T.head(28),
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Center(
-            child: Note(
-              'share the story with friends · lock your private thoughts',
-              size: 15,
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          // Sketch illustration card
-          SketchBox(
-            seed: 93,
-            fill: Ink.paper,
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  Widget _buildSlide2Mood() {
+    return _slideFrame(
+      visual: TagBox(
+        label: 'how does it feel?',
+        seed: 22,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                _buildMiniFeature(Icons.calendar_month_outlined, 'CALENDAR', 'Timeline history'),
-                Container(width: 1, height: 42, color: Ink.grey),
-                _buildMiniFeature(Icons.people_alt_outlined, 'THE CAST', 'Close friends'),
-                Container(width: 1, height: 42, color: Ink.grey),
-                _buildMiniFeature(Icons.lock_outline, 'PRIVACY', '4-digit PIN'),
+                SketchChip(label: 'hopeful', selected: true, seed: 1, onTap: () {}),
+                SketchChip(label: 'dreamy', selected: false, seed: 2, onTap: () {}),
+                SketchChip(label: 'restless', selected: false, seed: 3, onTap: () {}),
               ],
             ),
-          ),
-
-          const SizedBox(height: 20),
-          _buildBulletItem(
-            icon: Icons.calendar_today_outlined,
-            title: 'Chronological Calendar',
-            desc: 'Scrub through previous scenes and discover recurring moods, feelings, and musical arcs.',
-          ),
-          const SizedBox(height: 12),
-          _buildBulletItem(
-            icon: Icons.group_outlined,
-            title: 'Friends (The Cast)',
-            desc: 'Connect with close friends to see what songs and scenes are playing in their lives.',
-          ),
-          const SizedBox(height: 12),
-          _buildBulletItem(
-            icon: Icons.lock_outline,
-            title: 'Privacy PIN Lock',
-            desc: 'Enable a 4-digit security code in Settings to keep your intimate diary locked from prying eyes.',
-          ),
-          const SizedBox(height: 12),
-        ],
+            const SizedBox(height: 14),
+            const DashedLine(),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '"walked home in the rain with this on repeat."',
+                    style: T.note(16, c: Ink.ink),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.edit_outlined, size: 15, color: Ink.soft),
+              ],
+            ),
+          ],
+        ),
       ),
+      title: 'TAG & SCRIBBLE',
+      subtitle: 'choose a feeling pattern and jot down one quick line why.',
     );
   }
 
-  Widget _buildMiniFeature(IconData icon, String title, String subtitle) {
-    return Column(
-      children: [
-        Icon(icon, size: 24, color: Ink.ink),
-        const SizedBox(height: 4),
-        Text(title, style: T.head(12)),
-        Note(subtitle, size: 11),
-      ],
+  // ───────────────────────── Slide 3: Calendar & Co-Stars ─────────────────────────
+
+  Widget _buildSlide3CalendarAndFriends() {
+    const days = ['M', 'T', 'W', 'T', 'F'];
+    const hatches = [
+      Hatch.diagonal,
+      Hatch.dots,
+      Hatch.waves,
+      Hatch.cross,
+      Hatch.diagonal,
+    ];
+
+    return _slideFrame(
+      visual: TagBox(
+        label: 'my soundtrack',
+        right: true,
+        seed: 33,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                for (var i = 0; i < days.length; i++)
+                  Column(
+                    children: [
+                      Note(days[i], size: 13),
+                      const SizedBox(height: 5),
+                      HatchSwatch(hatches[i], size: 26, circle: true, gap: 3),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const DashedLine(),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const HatchSwatch(Hatch.cross, size: 28, circle: true, gap: 3),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'jules · Motion Sickness',
+                    style: T.body(14),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SketchPlayIcon(playing: false, size: 16, color: Ink.ink),
+              ],
+            ),
+          ],
+        ),
+      ),
+      title: 'CALENDAR & CO-STARS',
+      subtitle: 'watch your month fill with patterns and hear friends\' songs.',
     );
   }
 
-  // ───────────────────────── Slide 4: YouTube Setup & Skip ─────────────────────────
+  // ───────────────────────── Slide 4: Connect YouTube ─────────────────────────
 
-  Widget _buildSlideFour() {
+  Widget _buildSlide4YouTube() {
     return ListenableBuilder(
       listenable: musicService,
       builder: (context, _) {
         final isConnected = musicService.isYouTubeConnected;
 
-        return SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 8),
-              Center(
-                child: Text(
-                  'SEAMLESS PLAYBACK',
-                  textAlign: TextAlign.center,
-                  style: T.head(28),
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Center(
-                child: Note(
-                  'link YouTube for uninterrupted streaming & zero bot blocks',
-                  size: 15,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Status Card
-              SketchBox(
-                seed: 104,
-                fill: isConnected ? const Color(0xFFEAF5EC) : Ink.paper,
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          isConnected ? Icons.check_circle_outline : Icons.link,
-                          color: isConnected ? const Color(0xFF2E7D32) : Ink.ink,
-                          size: 26,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isConnected
-                                    ? 'YOUTUBE SESSION ACTIVE ✓'
-                                    : 'CONNECT YOUTUBE ACCOUNT',
-                                style: T.head(
-                                  15,
-                                  c: isConnected ? const Color(0xFF2E7D32) : Ink.ink,
+        return LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight - 32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 330),
+                    child: SketchBox(
+                      seed: 44,
+                      fill: isConnected ? const Color(0xFFEAF5EC) : Ink.paper,
+                      padding: const EdgeInsets.all(22),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isConnected
+                                ? Icons.check_circle_outline
+                                : Icons.headphones_outlined,
+                            size: 36,
+                            color: isConnected
+                                ? const Color(0xFF2E7D32)
+                                : Ink.ink,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            isConnected
+                                ? 'YOUTUBE CONNECTED ✓'
+                                : 'SEAMLESS MUSIC',
+                            textAlign: TextAlign.center,
+                            style: T.head(
+                              24,
+                              c: isConnected
+                                  ? const Color(0xFF2E7D32)
+                                  : Ink.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            isConnected
+                                ? 'bot checks bypassed — ready for smooth playback.'
+                                : 'connect your YouTube account so songs play smoothly without bot checks.',
+                            textAlign: TextAlign.center,
+                            style: T.body(15, c: Ink.soft),
+                          ),
+                          const SizedBox(height: 20),
+                          if (!isConnected)
+                            SketchButton(
+                              primary: true,
+                              onTap: _connectYouTube,
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                              child: Center(
+                                child: Text(
+                                  'CONNECT YOUTUBE',
+                                  style: T.head(15, c: Ink.paper),
                                 ),
                               ),
-                              Text(
-                                isConnected
-                                    ? 'Bot protection bypassed. You are ready for smooth playback.'
-                                    : 'Takes 30 seconds via secure in-app Google sign in.',
-                                style: T.body(13),
+                            )
+                          else
+                            SketchButton(
+                              primary: true,
+                              onTap: _finishAndEnter,
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                              child: Center(
+                                child: Text(
+                                  'START DIRECTING',
+                                  style: T.head(15, c: Ink.paper),
+                                ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ],
+                            ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 14),
-                    if (!isConnected)
-                      SketchButton(
-                        primary: true,
-                        onTap: _connectYouTube,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        child: Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.login, size: 18, color: Ink.paper),
-                              const SizedBox(width: 8),
-                              Text('CONNECT YOUTUBE ACCOUNT', style: T.head(14, c: Ink.paper)),
-                            ],
-                          ),
+                  ),
+                  if (!isConnected) ...[
+                    const SizedBox(height: 22),
+                    SketchTap(
+                      onTap: _finishAndEnter,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
                         ),
-                      )
-                    else
-                      SketchButton(
-                        primary: true,
-                        onTap: _finishAndEnter,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        child: Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.movie, size: 18, color: Ink.paper),
-                              const SizedBox(width: 8),
-                              Text('ENTER STUDIO · START DIRECTING', style: T.head(14, c: Ink.paper)),
-                            ],
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'SKIP FOR NOW',
+                              style: T.head(14).copyWith(
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.arrow_forward,
+                              size: 15,
+                              color: Ink.ink,
+                            ),
+                          ],
                         ),
                       ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 18),
-
-              // The Consequence / Skip Card (Crucial User Requirement)
-              SketchBox(
-                seed: 105,
-                fill: Ink.bg,
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.help_outline, size: 18, color: Ink.ink),
-                        const SizedBox(width: 6),
-                        Text('CAN I SKIP THIS STEP?', style: T.head(14)),
-                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Yes, you can skip and start using the app right away!',
-                      style: T.body(14, w: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    const DashedLine(),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('⚠️', style: TextStyle(fontSize: 16)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Consequence if you skip:',
-                                style: T.head(12, c: const Color(0xFF9E4010)),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'You can still search songs and write journal entries. However, YouTube will treat playback as an anonymous guest. Playback may occasionally freeze or fail with "Sign in to confirm you\'re not a bot" rate limits during heavy usage.',
-                                style: T.body(13),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'You can always connect or disconnect anytime later under Settings ➔ YouTube Session Bridge.',
-                                style: T.note(12, c: Ink.soft),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    if (!isConnected)
-                      Center(
-                        child: SketchTap(
-                          onTap: _finishAndEnter,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Ink.ink, width: 1.2),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text('SKIP FOR NOW & ENTER APP', style: T.head(13)),
-                                const SizedBox(width: 6),
-                                const Icon(Icons.arrow_forward, size: 14, color: Ink.ink),
-                              ],
-                            ),
-                          ),
-                        ),
+                    const SizedBox(height: 10),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 300),
+                      child: const Note(
+                        'if you skip: you can still log & search songs, though audio playback may hit YouTube bot blocks. connect anytime in settings.',
+                        size: 14,
+                        align: TextAlign.center,
                       ),
+                    ),
                   ],
-                ),
+                ],
               ),
-
-              const SizedBox(height: 16),
-            ],
+            ),
           ),
         );
       },
     );
   }
 
-  // ───────────────────────── Helper Item ─────────────────────────
-
-  Widget _buildBulletItem({
-    required IconData icon,
-    required String title,
-    required String desc,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Ink.ink, width: 1.2),
-          ),
-          child: Icon(icon, size: 18, color: Ink.ink),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: T.head(15)),
-              const SizedBox(height: 2),
-              Text(desc, style: T.body(14)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ───────────────────────── Bottom Navigation & Dots ─────────────────────────
+  // ───────────────────────── Bottom Nav ─────────────────────────
 
   Widget _buildBottomNav() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Ink.faint, width: 0.8)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Back button
           if (_currentPage > 0)
-            SketchTextButton(
-              '◀ back',
+            SketchTap(
               onTap: _prevPage,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.arrow_back, size: 15, color: Ink.ink),
+                    const SizedBox(width: 4),
+                    Text('BACK', style: T.head(14)),
+                  ],
+                ),
+              ),
             )
           else
-            const SizedBox(width: 60),
+            const SizedBox(width: 68),
 
-          // Dots Indicator
           Row(
             children: List.generate(4, (index) {
               final isSelected = index == _currentPage;
               return AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
+                duration: const Duration(milliseconds: 220),
                 margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: isSelected ? 20 : 8,
-                height: 8,
+                width: isSelected ? 20 : 7,
+                height: 7,
                 decoration: BoxDecoration(
                   color: isSelected ? Ink.ink : Ink.grey,
                   borderRadius: BorderRadius.circular(4),
@@ -735,33 +532,22 @@ class _IntroPageState extends State<IntroPage> {
             }),
           ),
 
-          // Next / Finish button
           if (_currentPage < 3)
             SketchButton(
               primary: true,
               onTap: _nextPage,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('NEXT', style: T.head(13, c: Ink.paper)),
+                  Text('NEXT', style: T.head(14, c: Ink.paper)),
                   const SizedBox(width: 4),
-                  const Icon(Icons.arrow_forward, size: 14, color: Ink.paper),
+                  const Icon(Icons.arrow_forward, size: 15, color: Ink.paper),
                 ],
               ),
             )
           else
-            SketchButton(
-              primary: true,
-              onTap: _finishAndEnter,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('ENTER 🎬', style: T.head(13, c: Ink.paper)),
-                ],
-              ),
-            ),
+            const SizedBox(width: 68),
         ],
       ),
     );

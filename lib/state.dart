@@ -341,7 +341,9 @@ class AppState extends ChangeNotifier {
   bool privacyLock = false;
   String? _privacyPin;
   bool isPrivacyUnlocked = false;
-  bool _hasSeenIntro = false;
+  bool _hasSeenIntro = true;
+  bool _pendingSignUpIntro = false;
+  bool _suppressIntroOnSignIn = false;
   final Set<String> _seenIntroUsers = <String>{};
   bool get hasSeenIntro => _hasSeenIntro || demoMode;
   set hasSeenIntro(bool v) => _hasSeenIntro = v;
@@ -426,7 +428,7 @@ class AppState extends ChangeNotifier {
     await _authSub?.cancel();
     final initialUser = _sb.auth.currentSession?.user;
     if (initialUser != null) {
-      _applyUser(initialUser);
+      _applyUser(initialUser, isInitialSession: true);
       unawaited(loadFromDatabase());
     }
     _authSub = _sb.auth.onAuthStateChange.listen((data) {
@@ -436,7 +438,10 @@ class AppState extends ChangeNotifier {
       }
       if (nextUser != null) {
         final switchedUser = user?.id != nextUser.id;
-        _applyUser(nextUser);
+        _applyUser(
+          nextUser,
+          isInitialSession: data.event == AuthChangeEvent.initialSession,
+        );
         notifyListeners();
         if (switchedUser) {
           unawaited(loadFromDatabase());
@@ -448,12 +453,33 @@ class AppState extends ChangeNotifier {
     });
   }
 
-  void _applyUser(User u, {String? preferredName}) {
+  bool _isNewlyRegisteredUser(User u) {
+    if (_seenIntroUsers.contains(u.id)) return false;
+    if (_pendingSignUpIntro) return true;
+    final created = DateTime.tryParse(u.createdAt);
+    final lastSignIn =
+        u.lastSignInAt != null ? DateTime.tryParse(u.lastSignInAt!) : null;
+    if (created != null && lastSignIn != null) {
+      return lastSignIn.difference(created).abs() <= const Duration(minutes: 2);
+    }
+    return false;
+  }
+
+  void _applyUser(
+    User u, {
+    String? preferredName,
+    bool isInitialSession = false,
+  }) {
     final switching = user?.id != u.id;
     user = u;
     demoMode = false;
     if (switching) {
-      _hasSeenIntro = _seenIntroUsers.contains(u.id);
+      if (isInitialSession || _suppressIntroOnSignIn) {
+        _hasSeenIntro = true;
+      } else {
+        _hasSeenIntro = !_isNewlyRegisteredUser(u);
+      }
+      _pendingSignUpIntro = false;
       unawaited(_loadIntroSettings());
     }
     final meta = u.userMetadata;
@@ -490,7 +516,9 @@ class AppState extends ChangeNotifier {
     unawaited(ReminderService.instance.cancelAll());
     user = null;
     demoMode = false;
-    hasSeenIntro = false;
+    _hasSeenIntro = true;
+    _pendingSignUpIntro = false;
+    _suppressIntroOnSignIn = false;
     syncing = false;
     dbReady = false;
     isRecoveringPassword = false;
@@ -510,14 +538,20 @@ class AppState extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
-    final res = await _sb.auth.signInWithPassword(
-      email: email.trim(),
-      password: password,
-    );
-    if (res.user != null) {
-      _applyUser(res.user!);
-      notifyListeners();
-      await loadFromDatabase();
+    _suppressIntroOnSignIn = true;
+    try {
+      final res = await _sb.auth.signInWithPassword(
+        email: email.trim(),
+        password: password,
+      );
+      if (res.user != null) {
+        _applyUser(res.user!);
+        _hasSeenIntro = true;
+        notifyListeners();
+        await loadFromDatabase();
+      }
+    } finally {
+      _suppressIntroOnSignIn = false;
     }
   }
 
@@ -531,27 +565,32 @@ class AppState extends ChangeNotifier {
         ? cleanEmail.split('@').first
         : directorName.trim();
 
-    final res = await _sb.auth.signUp(
-      email: cleanEmail,
-      password: password,
-      data: <String, dynamic>{'display_name': cleanName},
-    );
-
-    final identities = res.user?.identities;
-    if (identities != null && identities.isEmpty) {
-      throw const AuthException(
-        'This email is already registered – switch to Sign In instead.',
+    _pendingSignUpIntro = true;
+    try {
+      final res = await _sb.auth.signUp(
+        email: cleanEmail,
+        password: password,
+        data: <String, dynamic>{'display_name': cleanName},
       );
-    }
 
-    if (res.session != null && res.user != null) {
-      _applyUser(res.user!, preferredName: cleanName);
-      notifyListeners();
-      await loadFromDatabase(preferredName: cleanName);
-      return (needsEmailConfirmation: false, email: cleanEmail);
-    }
+      final identities = res.user?.identities;
+      if (identities != null && identities.isEmpty) {
+        throw const AuthException(
+          'This email is already registered – switch to Sign In instead.',
+        );
+      }
 
-    return (needsEmailConfirmation: true, email: cleanEmail);
+      if (res.session != null && res.user != null) {
+        _applyUser(res.user!, preferredName: cleanName);
+        notifyListeners();
+        await loadFromDatabase(preferredName: cleanName);
+        return (needsEmailConfirmation: false, email: cleanEmail);
+      }
+
+      return (needsEmailConfirmation: true, email: cleanEmail);
+    } finally {
+      _pendingSignUpIntro = false;
+    }
   }
 
   Future<void> verifySignupOtp({
@@ -559,15 +598,20 @@ class AppState extends ChangeNotifier {
     required String token,
     String? directorName,
   }) async {
-    final res = await _sb.auth.verifyOTP(
-      email: email.trim(),
-      token: token.trim(),
-      type: OtpType.signup,
-    );
-    if (res.user != null) {
-      _applyUser(res.user!, preferredName: directorName);
-      notifyListeners();
-      await loadFromDatabase(preferredName: directorName);
+    _pendingSignUpIntro = true;
+    try {
+      final res = await _sb.auth.verifyOTP(
+        email: email.trim(),
+        token: token.trim(),
+        type: OtpType.signup,
+      );
+      if (res.user != null) {
+        _applyUser(res.user!, preferredName: directorName);
+        notifyListeners();
+        await loadFromDatabase(preferredName: directorName);
+      }
+    } finally {
+      _pendingSignUpIntro = false;
     }
   }
 
@@ -863,6 +907,10 @@ class AppState extends ChangeNotifier {
           .maybeSingle();
 
       if (profile == null) {
+        if (!_seenIntroUsers.contains(uid) && !_suppressIntroOnSignIn) {
+          _hasSeenIntro = false;
+          notifyListeners();
+        }
         final seedName = (preferredName != null && preferredName.trim().isNotEmpty)
             ? preferredName.trim()
             : name;
@@ -2647,11 +2695,11 @@ class AppState extends ChangeNotifier {
             _seenIntroUsers.addAll(users.whereType<String>());
           }
           final currentUid = user?.id ?? _sb.auth.currentSession?.user.id;
-          if (currentUid != null) {
-            _hasSeenIntro = _seenIntroUsers.contains(currentUid) ||
-                (_seenIntroUsers.isEmpty && decoded['seen'] == true);
-          } else if (_seenIntroUsers.isEmpty && decoded['seen'] == true) {
-            _hasSeenIntro = true;
+          if (currentUid != null && _seenIntroUsers.contains(currentUid)) {
+            if (!_hasSeenIntro) {
+              _hasSeenIntro = true;
+              notifyListeners();
+            }
           }
         }
       }

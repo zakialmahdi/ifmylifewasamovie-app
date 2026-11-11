@@ -7,7 +7,7 @@ import 'package:if_my_life_was_a_movie/state.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('IntroPage navigates through carousel, shows YouTube setup and skip consequence', (tester) async {
+  testWidgets('IntroPage navigates through streamlined slides, supports back arrow, shows YouTube setup & skip consequence', (tester) async {
     app.demoMode = false;
     app.hasSeenIntro = false;
 
@@ -28,35 +28,44 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
 
-    // Slide 1
-    expect(find.text('YOUR LIFE IS A MOVIE'), findsOneWidget);
-    expect(find.text('ACT I · THE CONCEPT'), findsOneWidget);
+    // Slide 1: One song a day
+    expect(find.text('1 / 4'), findsOneWidget);
+    expect(find.text('ONE SONG A DAY'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back), findsNothing);
 
-    // Tap NEXT -> Slide 2
+    // Tap NEXT -> Slide 2: Mood & One Line
     await tester.tap(find.text('NEXT'));
     await tester.pumpAndSettle();
-    expect(find.text('SCORE EVERY SCENE'), findsOneWidget);
-    expect(find.text('ACT II · THE SOUNDTRACK'), findsOneWidget);
+    expect(find.text('2 / 4'), findsOneWidget);
+    expect(find.text('TAG & SCRIBBLE'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
 
-    // Tap NEXT -> Slide 3
+    // Test BACK arrow returns to Slide 1
+    await tester.tap(find.text('BACK'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 / 4'), findsOneWidget);
+    expect(find.text('ONE SONG A DAY'), findsOneWidget);
+
+    // Forward to Slide 2 -> Slide 3 -> Slide 4
     await tester.tap(find.text('NEXT'));
     await tester.pumpAndSettle();
-    expect(find.text('THE CAST & TIMELINE'), findsOneWidget);
-    expect(find.text('ACT III · THE CAST & REEL'), findsOneWidget);
-
-    // Tap NEXT -> Slide 4 (YouTube Setup & Skip consequence)
     await tester.tap(find.text('NEXT'));
     await tester.pumpAndSettle();
-    expect(find.text('SEAMLESS PLAYBACK'), findsOneWidget);
-    expect(find.text('CONNECT YOUTUBE ACCOUNT'), findsWidgets);
-    expect(find.text('CAN I SKIP THIS STEP?'), findsOneWidget);
-    expect(find.text('Consequence if you skip:'), findsOneWidget);
-    expect(find.text('SKIP FOR NOW & ENTER APP'), findsOneWidget);
+    expect(find.text('3 / 4'), findsOneWidget);
+    expect(find.text('CALENDAR & CO-STARS'), findsOneWidget);
 
-    // Tap Skip -> should mark intro seen and navigate to Home
-    await tester.ensureVisible(find.text('SKIP FOR NOW & ENTER APP'));
+    await tester.tap(find.text('NEXT'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('SKIP FOR NOW & ENTER APP'));
+    expect(find.text('4 / 4'), findsOneWidget);
+    expect(find.text('SEAMLESS MUSIC'), findsOneWidget);
+    expect(find.text('CONNECT YOUTUBE'), findsOneWidget);
+    expect(find.text('SKIP FOR NOW'), findsOneWidget);
+    expect(find.textContaining('if you skip:'), findsOneWidget);
+
+    // Tap SKIP FOR NOW -> marks intro seen & enters Home
+    await tester.ensureVisible(find.text('SKIP FOR NOW'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('SKIP FOR NOW'));
     await tester.pumpAndSettle();
 
     expect(app.hasSeenIntro, isTrue);

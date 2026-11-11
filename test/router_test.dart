@@ -196,4 +196,29 @@ void main() {
     );
     expect(authRedirect(fakeContext, introState), isNull);
   });
+
+  test('Existing non-demo user accesses / directly without seeing intro', () {
+    app.isRecoveringPassword = false;
+    app.demoMode = false;
+    app.user = const User(
+      id: 'returning-user-id',
+      appMetadata: <String, dynamic>{},
+      userMetadata: <String, dynamic>{},
+      aud: 'authenticated',
+      createdAt: '2025-01-01T00:00:00Z',
+      lastSignInAt: '2026-11-11T00:00:00Z',
+    );
+    app.hasSeenIntro = true;
+
+    final homeState = GoRouterState(
+      appRouter.configuration,
+      uri: Uri.parse('/'),
+      matchedLocation: '/',
+      fullPath: '/',
+      pathParameters: const <String, String>{},
+      pageKey: const ValueKey('home'),
+    );
+    expect(authRedirect(fakeContext, homeState), isNull);
+    app.user = null;
+  });
 }
