@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../services/app_version_service.dart';
 import '../services/youtube_music_service.dart';
 import '../sketch.dart';
 import '../state.dart';
@@ -1249,7 +1250,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const SizedBox(height: 12),
               const Note(
-                'v1.0 – crafted with pencil, code & too much coffee.',
+                'v${AppVersionService.kFallbackVersion} – crafted with pencil, code & too much coffee.',
                 size: 13,
               ),
             ],
@@ -1543,7 +1544,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   const SizedBox(height: 2),
                   const Note(
-                    'lone developer: zakialmahdi · v1.0',
+                    'lone developer: zakialmahdi · v${AppVersionService.kFallbackVersion}',
                     size: 14,
                   ),
                 ],

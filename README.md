@@ -1,6 +1,6 @@
-# 🎬 If My Life Was a Movie — v1.0.0-beta ("The First Cut")
+# 🎬 If My Life Was a Movie — v1.1.0
 
-Welcome to the initial beta release of **If My Life Was a Movie**! 
+Welcome to **If My Life Was a Movie**!
 
 *If My Life Was a Movie* is a song-based mood journal designed with an intimate, hand-drawn sketch aesthetic. Turn your days into scenes, your memories into cinema, and score every moment with the soundtrack of your life.
 
@@ -14,15 +14,16 @@ Welcome to the initial beta release of **If My Life Was a Movie**!
 
 ---
 
-### ✨ What's in this Beta
+### ✨ Features
 
 * 🎬 **Scene Journaling (Home)**: Frame your daily thoughts, reflections, and captured photos as scenes in your personal movie timeline.
 * 🎵 **Soundtracks for Life (Song Search)**: Search YouTube Music and attach a soundtrack song to each scene, with integrated in-app audio playback.
-* 📅 **Calendar Navigation**: Scrub through past days, scenes, and moods chronologically.
+* 📅 **Calendar Navigation**: Switch between feeling swatches and song album covers to scrub through past scenes chronologically.
 * 👥 **The Cast (Friends)**: Connect with friends, see what scenes they are living through, and discover the music scoring their lives.
 * ✏️ **Hand-Drawn Sketch UI**: A custom paper-and-ink visual aesthetic designed like a personal director's notebook.
 * 🔒 **Privacy Lock**: Keep your journal reflections private with PIN lock screen protection.
 * ⏰ **Scene Prompts & Reminders**: Daily notifications to remind you to score today's scene.
+* 🔄 **In-App Update Checks**: Checks Supabase on launch and notifies users when a newer release is ready.
 
 ---
 
@@ -34,7 +35,7 @@ Welcome to the initial beta release of **If My Life Was a Movie**!
 ### 📥 Download & Install
 
 #### Android (.apk)
-1. Download **ifmylifewasamovie-v1.0.0-beta** from the **Assets** section below.
+1. Download **ifmylifewasamovie-v1.1.0.apk** from the **Assets** section on the [Releases Page](https://github.com/zakialmahdi/ifmylifewasamovie-app/releases).
 2. Open the file on your Android device.
 3. If prompted, allow "Install from unknown sources" for your browser/file manager.
 

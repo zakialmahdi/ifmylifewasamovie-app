@@ -800,3 +800,85 @@ begin
     alter publication supabase_realtime add table public.friendships;
   end if;
 end $$;
+
+-- ============================================================================
+-- 10. App Releases & Splash Screen Update Check
+-- ============================================================================
+
+create table if not exists public.app_releases (
+  id bigint generated always as identity primary key,
+  platform text not null default 'all'
+    check (platform in ('all', 'android', 'ios', 'web')),
+  latest_version text not null
+    check (char_length(btrim(latest_version)) > 0),
+  latest_build_number integer not null default 1
+    check (latest_build_number >= 1),
+  release_notes text not null default '',
+  download_url text not null default 'https://github.com/zakialmahdi/ifmylifewasamovie-app/releases/latest',
+  force_update boolean not null default false,
+  is_active boolean not null default true,
+  published_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.app_releases
+  add column if not exists latest_build_number integer not null default 1;
+alter table public.app_releases
+  add column if not exists release_notes text not null default '';
+alter table public.app_releases
+  add column if not exists download_url text not null default 'https://github.com/zakialmahdi/ifmylifewasamovie-app/releases/latest';
+alter table public.app_releases
+  add column if not exists force_update boolean not null default false;
+alter table public.app_releases
+  add column if not exists is_active boolean not null default true;
+alter table public.app_releases
+  add column if not exists published_at timestamptz not null default now();
+
+create index if not exists app_releases_active_platform_idx
+  on public.app_releases (platform, latest_build_number desc, published_at desc)
+  where is_active = true;
+
+drop trigger if exists set_app_releases_updated_at on public.app_releases;
+create trigger set_app_releases_updated_at
+  before update on public.app_releases
+  for each row execute function private.set_updated_at();
+
+-- Grant anonymous + authenticated read-only access so splash checks work pre-login
+grant usage on schema public to anon, authenticated;
+grant select on public.app_releases to anon, authenticated;
+grant all on public.app_releases to service_role;
+
+alter table public.app_releases enable row level security;
+
+drop policy if exists "Anyone can read active app releases" on public.app_releases;
+create policy "Anyone can read active app releases"
+  on public.app_releases
+  for select
+  to anon, authenticated
+  using (is_active = true);
+
+-- Seed current release row once so splash screen checks match latest release
+insert into public.app_releases (
+  platform,
+  latest_version,
+  latest_build_number,
+  release_notes,
+  download_url,
+  force_update,
+  is_active
+)
+select
+  'all',
+  '1.1.0',
+  2,
+  'Added calendar feeling/song album cover toggle, streamlined onboarding, and automatic update checks.',
+  'https://github.com/zakialmahdi/ifmylifewasamovie-app/releases/latest',
+  false,
+  true
+where not exists (
+  select 1
+  from public.app_releases
+  where latest_version = '1.1.0'
+    and latest_build_number = 2
+);

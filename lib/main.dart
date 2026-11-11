@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' hide Ink;
 import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'router.dart';
+import 'services/app_version_service.dart';
 import 'sketch.dart';
 import 'state.dart';
+import 'widgets/app_update_dialog.dart';
 import 'widgets/privacy_lock_widgets.dart';
 import 'widgets/reminder_banner.dart';
 
@@ -49,7 +53,7 @@ class MovieApp extends StatelessWidget {
             const TextSelectionThemeData(cursorColor: Ink.ink, selectionColor: Ink.grey),
       ),
       routerConfig: appRouter,
-      builder: (context, child) => _SplashGate(
+      builder: (context, child) => SplashGate(
         child: PrivacyLockGate(
           child: ReminderBannerHost(child: child ?? const SizedBox.shrink()),
         ),
@@ -58,15 +62,23 @@ class MovieApp extends StatelessWidget {
   }
 }
 
-class _SplashGate extends StatefulWidget {
+class SplashGate extends StatefulWidget {
   final Widget child;
-  const _SplashGate({required this.child});
+  final Future<AppUpdateInfo?> Function()? checkForUpdate;
+  final UpdateUrlLauncher? updateLauncher;
+
+  const SplashGate({
+    super.key,
+    required this.child,
+    this.checkForUpdate,
+    this.updateLauncher,
+  });
 
   @override
-  State<_SplashGate> createState() => _SplashGateState();
+  State<SplashGate> createState() => _SplashGateState();
 }
 
-class _SplashGateState extends State<_SplashGate> with SingleTickerProviderStateMixin {
+class _SplashGateState extends State<SplashGate> with SingleTickerProviderStateMixin {
   late final AnimationController _ctl = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1850),
@@ -74,21 +86,38 @@ class _SplashGateState extends State<_SplashGate> with SingleTickerProviderState
 
   double _clapTurns = 0;
   bool _done = false;
+  AppUpdateInfo? _availableUpdate;
+  bool _promptDismissed = false;
+
+  bool get _showingUpdatePrompt => _availableUpdate != null && !_promptDismissed;
 
   @override
   void initState() {
     super.initState();
     _ctl.addStatusListener((status) {
-      if (status == AnimationStatus.completed && mounted) {
+      if (status == AnimationStatus.completed && mounted && !_showingUpdatePrompt) {
         setState(() => _done = true);
       }
     });
     _ctl.forward();
+    unawaited(_checkForUpdate());
 
     // Trigger signature clapper rotation snap at 300ms
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted && !_done) {
         setState(() => _clapTurns = 1.0);
+      }
+    });
+  }
+
+  Future<void> _checkForUpdate() async {
+    final update =
+        await (widget.checkForUpdate ?? AppVersionService.instance.checkForUpdate)();
+    if (!mounted || update == null) return;
+    setState(() {
+      _availableUpdate = update;
+      if (_ctl.isAnimating) {
+        _ctl.stop();
       }
     });
   }
@@ -100,27 +129,39 @@ class _SplashGateState extends State<_SplashGate> with SingleTickerProviderState
   }
 
   void _skip() {
-    if (_done) return;
+    if (_done || _showingUpdatePrompt) return;
     _ctl.stop();
     setState(() => _done = true);
   }
 
+  void _dismissUpdate() {
+    _ctl.stop();
+    setState(() {
+      _promptDismissed = true;
+      _done = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_done) return widget.child;
+    final showPrompt = _showingUpdatePrompt;
+    if (_done && !showPrompt) return widget.child;
 
     return Stack(
       children: [
         widget.child,
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: _skip,
-            behavior: HitTestBehavior.opaque,
-            child: AnimatedBuilder(
-              animation: _ctl,
-              builder: (context, _) {
-                final t = _ctl.value;
-                final fadeOut = t < 0.78 ? 1.0 : ((1.0 - t) / 0.22).clamp(0.0, 1.0);
+        if (!_done)
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _skip,
+              behavior: HitTestBehavior.opaque,
+              child: AnimatedBuilder(
+                animation: _ctl,
+                builder: (context, _) {
+                  final t = _ctl.value;
+                  final fadeOut = showPrompt
+                      ? 1.0
+                      : (t < 0.78 ? 1.0 : ((1.0 - t) / 0.22).clamp(0.0, 1.0));
 
                 return Opacity(
                   opacity: fadeOut,
@@ -181,9 +222,12 @@ class _SplashGateState extends State<_SplashGate> with SingleTickerProviderState
                                                   ),
                                                 ),
                                                 const SizedBox(width: 8),
-                                                Text(
-                                                  'ROLLING REEL · TAKE 1',
-                                                  style: T.head(13, c: Ink.soft),
+                                                Flexible(
+                                                  child: Text(
+                                                    'ROLLING REEL · TAKE 1',
+                                                    style: T.head(13, c: Ink.soft),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
                                                 ),
                                               ],
                                             ),
@@ -204,7 +248,7 @@ class _SplashGateState extends State<_SplashGate> with SingleTickerProviderState
                                     ),
                                     const SizedBox(height: 2),
                                     const Note(
-                                      'lone developer: zakialmahdi · v1.0',
+                                      'lone developer: zakialmahdi · v${AppVersionService.kFallbackVersion}',
                                       size: 14,
                                     ),
                                     const SizedBox(height: 6),
@@ -226,6 +270,12 @@ class _SplashGateState extends State<_SplashGate> with SingleTickerProviderState
             ),
           ),
         ),
+        if (showPrompt)
+          AppUpdateDialogOverlay(
+            update: _availableUpdate!,
+            onLater: _availableUpdate!.forceUpdate ? null : _dismissUpdate,
+            urlLauncher: widget.updateLauncher,
+          ),
       ],
     );
   }

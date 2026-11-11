@@ -5,6 +5,13 @@ All notable changes to **If My Life Was a Movie** will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-11-11
+
+### Added
+- **Calendar Feeling / Song Cover Toggle**: Switch day circles on the Calendar page between mood hatch swatches and circular song album covers.
+- **Splash Screen App Update Check**: Checks active releases in Supabase (`public.app_releases`) on splash screen open and prompts users when a newer version is available.
+- **First-Session Storyboard Onboarding**: 4-slide visual walkthrough with a direct YouTube Music setup step and skip note for newly registered users.
+
 ## [1.0.0-beta] - 2026-11-10
 
 ### Added
