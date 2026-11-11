@@ -5,6 +5,8 @@ import '../sketch.dart';
 import '../state.dart';
 import '../widgets/scene_editor.dart';
 
+enum _CalendarCircleMode { feeling, song }
+
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
   @override
@@ -13,10 +15,66 @@ class CalendarPage extends StatefulWidget {
 
 class _CalendarPageState extends State<CalendarPage> {
   int _dir = 1;
+  _CalendarCircleMode _mode = _CalendarCircleMode.feeling;
 
   void _shift(int d) {
     _dir = d;
     app.shiftMonth(d);
+  }
+
+  void _setMode(_CalendarCircleMode mode) {
+    if (_mode == mode) return;
+    setState(() => _mode = mode);
+  }
+
+  Widget _viewToggle() {
+    const options = [
+      (mode: _CalendarCircleMode.feeling, label: 'feeling', seed: 31),
+      (mode: _CalendarCircleMode.song, label: 'song', seed: 32),
+    ];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Note('view:', size: 14),
+        for (final opt in options)
+          SketchChip(
+            label: opt.label,
+            selected: _mode == opt.mode,
+            seed: opt.seed,
+            onTap: () => _setMode(opt.mode),
+          ),
+      ],
+    );
+  }
+
+  Widget _legend() {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      child: _mode == _CalendarCircleMode.song
+          ? const Align(
+              key: ValueKey(_CalendarCircleMode.song),
+              alignment: Alignment.centerLeft,
+              child: Note('each circle shows that day’s song album cover', size: 13),
+            )
+          : Align(
+              key: const ValueKey(_CalendarCircleMode.feeling),
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 6,
+                children: [
+                  for (final mood in app.moods)
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      HatchSwatch(mood.hatch, size: 18, circle: true, gap: 3),
+                      const SizedBox(width: 5),
+                      Text(mood.name, style: T.body(13)),
+                    ]),
+                ],
+              ),
+            ),
+    );
   }
 
   @override
@@ -36,8 +94,10 @@ class _CalendarPageState extends State<CalendarPage> {
               const Note('the whole film so far', size: 15),
               const SizedBox(height: 2),
               Text('MY SOUNDTRACK', style: T.head(27)),
+              const SizedBox(height: 10),
+              _viewToggle(),
             ])),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             r(SketchBox(
               seed: 8,
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
@@ -76,18 +136,7 @@ class _CalendarPageState extends State<CalendarPage> {
               ]),
             )),
             const SizedBox(height: 12),
-            r(Wrap(
-              spacing: 12,
-              runSpacing: 6,
-              children: [
-                for (final mood in app.moods)
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    HatchSwatch(mood.hatch, size: 18, circle: true, gap: 3),
-                    const SizedBox(width: 5),
-                    Text(mood.name, style: T.body(13)),
-                  ]),
-              ],
-            )),
+            r(_legend()),
             const SizedBox(height: 14),
             r(_detail(app.selected)),
           ],
@@ -131,7 +180,24 @@ class _CalendarPageState extends State<CalendarPage> {
               if (e != null)
                 Transform.scale(
                   scale: sel ? 1.08 : 1.0,
-                  child: HatchSwatch(e.mood.hatch, size: 26, circle: true, gap: 3.2),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    child: _mode == _CalendarCircleMode.song
+                        ? SongArtBox(
+                            key: const ValueKey(_CalendarCircleMode.song),
+                            song: e.song,
+                            size: 26,
+                            circle: true,
+                            gap: 3.2,
+                          )
+                        : HatchSwatch(
+                            key: const ValueKey(_CalendarCircleMode.feeling),
+                            e.mood.hatch,
+                            size: 26,
+                            circle: true,
+                            gap: 3.2,
+                          ),
+                  ),
                 )
               else
                 const SizedBox(

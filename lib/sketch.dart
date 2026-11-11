@@ -456,13 +456,21 @@ class SongArtBox extends StatelessWidget {
   final Song song;
   final double size;
   final double? gap;
+  final bool circle;
 
   const SongArtBox({
     super.key,
     required this.song,
     this.size = 36,
     this.gap,
+    this.circle = false,
   });
+
+  BoxDecoration _frameDecoration() => BoxDecoration(
+        color: Ink.paper,
+        shape: circle ? BoxShape.circle : BoxShape.rectangle,
+        border: Border.all(color: Ink.ink, width: 1.5),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -472,7 +480,7 @@ class SongArtBox extends StatelessWidget {
         final state = musicService.coverStateFor(song);
 
         if (state == CoverArtState.unavailable) {
-          return HatchSwatch(song.art, size: size, gap: gap);
+          return HatchSwatch(song.art, size: size, circle: circle, gap: gap);
         }
 
         if (state == CoverArtState.loading) {
@@ -480,37 +488,32 @@ class SongArtBox extends StatelessWidget {
           return SizedBox(
             width: size,
             height: size,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Ink.paper,
-                border: Border.all(color: Ink.ink, width: 1.5),
-              ),
-            ),
+            child: DecoratedBox(decoration: _frameDecoration()),
           );
         }
 
         final resolvedUrl = musicService.albumCoverFor(song)!;
+        final fallback = HatchSwatch(
+          song.art,
+          size: math.max(0, size - 3),
+          circle: circle,
+          gap: gap,
+          outline: false,
+        );
+        final image = Image.network(
+          resolvedUrl,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => fallback,
+        );
         return SizedBox(
           width: size,
           height: size,
           child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Ink.paper,
-              border: Border.all(color: Ink.ink, width: 1.5),
-            ),
+            decoration: _frameDecoration(),
             child: Padding(
               padding: const EdgeInsets.all(1.5),
-              child: Image.network(
-                resolvedUrl,
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                errorBuilder: (_, _, _) => HatchSwatch(
-                  song.art,
-                  size: math.max(0, size - 3),
-                  gap: gap,
-                  outline: false,
-                ),
-              ),
+              child: circle ? ClipOval(child: image) : image,
             ),
           ),
         );
