@@ -88,11 +88,17 @@ class _ReminderBannerHostState extends State<ReminderBannerHost>
               left: 14,
               right: 14,
               top: visible ? MediaQuery.paddingOf(context).top + 10 : -160,
-              child: IgnorePointer(
-                ignoring: !visible,
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: SketchTap(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: responsiveLayoutWidth(MediaQuery.sizeOf(context).width),
+                  ),
+                  child: IgnorePointer(
+                    ignoring: !visible,
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: SketchTap(
                     onTap: _onBannerTap,
                     child: SketchBox(
                       seed: 88,
@@ -134,7 +140,9 @@ class _ReminderBannerHostState extends State<ReminderBannerHost>
                   ),
                 ),
               ),
-            );
+            ),
+          ),
+        );
           },
         ),
       ],

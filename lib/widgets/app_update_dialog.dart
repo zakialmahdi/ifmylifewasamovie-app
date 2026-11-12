@@ -7,6 +7,59 @@ import '../sketch.dart';
 
 typedef UpdateUrlLauncher = Future<bool> Function(Uri uri);
 
+/// Sample update payload shown in demo mode to preview the update alert without
+/// modifying live Supabase release metadata.
+AppUpdateInfo demoAppUpdateSample() => const AppUpdateInfo(
+      currentVersion: AppVersionService.kFallbackVersion,
+      currentBuildNumber: AppVersionService.kFallbackBuildNumber,
+      latestVersion: '1.2.0',
+      latestBuildNumber: AppVersionService.kFallbackBuildNumber + 1,
+      releaseNotes:
+          '• smoother YouTube soundtrack buffering & offline caching\n'
+          '• coming soon: Calendar Widget & printable Zine exports\n'
+          '(demo preview — real notes load from Supabase on launch)',
+      downloadUrl: AppVersionService.kDefaultDownloadUrl,
+      forceUpdate: false,
+      platform: 'android',
+    );
+
+/// Presents [AppUpdateDialogOverlay] inside a route modal so settings and demo
+/// flows can preview the exact splash update alert on demand.
+Future<void> showAppUpdatePreviewDialog(
+  BuildContext context, {
+  AppUpdateInfo? update,
+  UpdateUrlLauncher? urlLauncher,
+}) {
+  final info = update ?? demoAppUpdateSample();
+  var dismissed = false;
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    barrierLabel: 'App update preview',
+    barrierColor: Colors.transparent,
+    transitionDuration: const Duration(milliseconds: 160),
+    pageBuilder: (dialogContext, _, _) => PopScope(
+      canPop: !info.forceUpdate,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) dismissed = true;
+      },
+      child: Stack(
+        children: [
+          AppUpdateDialogOverlay(
+            update: info,
+            urlLauncher: urlLauncher,
+            onLater: () {
+              if (dismissed || !dialogContext.mounted) return;
+              dismissed = true;
+              Navigator.of(dialogContext).pop();
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 /// Full-screen sketchbook modal overlay shown over [SplashGate] when Supabase
 /// reports a newer app version. Works without requiring a [Navigator] ancestor.
 class AppUpdateDialogOverlay extends StatefulWidget {
@@ -98,7 +151,9 @@ class _AppUpdateDialogOverlayState extends State<AppUpdateDialogOverlay> {
                 child: Material(
                   type: MaterialType.transparency,
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 380),
+                    constraints: BoxConstraints(
+                      maxWidth: responsiveDialogWidth(MediaQuery.sizeOf(context).width),
+                    ),
                     child: SketchDialogCard(
                       title: update.forceUpdate ? 'update required' : 'new update ready',
                       body: ConstrainedBox(

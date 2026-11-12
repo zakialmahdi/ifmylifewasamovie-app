@@ -780,7 +780,7 @@ class _NowPlayingState extends State<NowPlaying> with SingleTickerProviderStateM
       musicService.ensureITunesMetadata(song);
     }
 
-    final statusNote = error != null
+    final String? statusNote = error != null
         ? '↑ $error'
         : loading
             ? '↑ resolving & buffering audio stream...'
@@ -790,7 +790,7 @@ class _NowPlayingState extends State<NowPlaying> with SingleTickerProviderStateM
                     ? '↑ streaming live & caching locally for offline replay ♪'
                     : cached
                         ? '↑ saved offline on device · 0ms instant play'
-                        : '↑ tap ▶ to stream · search clean catalog below';
+                        : null;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -911,7 +911,16 @@ class _NowPlayingState extends State<NowPlaying> with SingleTickerProviderStateM
         ),
       ]),
       const SizedBox(height: 8),
-      Note(statusNote, size: 15, color: Ink.ink),
+      if (statusNote != null)
+        Note(statusNote, size: 15, color: Ink.ink)
+      else
+        const InlineIconNote(
+          prefix: '↑ tap ',
+          icon: Icon(Icons.play_arrow, size: 16, color: Ink.ink),
+          suffix: ' to stream · search clean catalog below',
+          size: 15,
+          color: Ink.ink,
+        ),
     ]);
   }
 }

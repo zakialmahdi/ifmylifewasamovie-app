@@ -15,6 +15,20 @@ import 'services/youtube_music_service.dart';
 const kGoogleWebClientId =
     '472839838495-re1kna3130b98r25laqti642et5e7o1d.apps.googleusercontent.com';
 
+/// Resolves the platform-appropriate Supabase auth redirect URL.
+/// Returns `io.supabase.flutter://auth-callback` on mobile/desktop and
+/// `<origin><webPath>` on web HTTP(S) origins so deployments like Netlify
+/// redirect back to the live site instead of Supabase's localhost default.
+String? resolveAuthRedirectUrl({
+  required bool isWeb,
+  required Uri baseUri,
+  String webPath = '/',
+}) {
+  if (!isWeb) return 'io.supabase.flutter://auth-callback';
+  if (baseUri.scheme != 'http' && baseUri.scheme != 'https') return null;
+  return '${baseUri.origin}$webPath';
+}
+
 enum Hatch {
   solid,
   diagonal,
@@ -571,6 +585,10 @@ class AppState extends ChangeNotifier {
         email: cleanEmail,
         password: password,
         data: <String, dynamic>{'display_name': cleanName},
+        emailRedirectTo: resolveAuthRedirectUrl(
+          isWeb: kIsWeb,
+          baseUri: Uri.base,
+        ),
       );
 
       final identities = res.user?.identities;
@@ -661,7 +679,10 @@ class AppState extends ChangeNotifier {
 
     return _sb.auth.signInWithOAuth(
       OAuthProvider.google,
-      redirectTo: kIsWeb ? null : 'io.supabase.flutter://auth-callback',
+      redirectTo: resolveAuthRedirectUrl(
+        isWeb: kIsWeb,
+        baseUri: Uri.base,
+      ),
       queryParams: const <String, String>{
         'access_type': 'offline',
         'prompt': 'select_account',
@@ -672,9 +693,11 @@ class AppState extends ChangeNotifier {
   Future<void> sendPasswordReset(String email) async {
     await _sb.auth.resetPasswordForEmail(
       email.trim(),
-      redirectTo: kIsWeb
-          ? '${Uri.base.origin}/reset-password'
-          : 'io.supabase.flutter://auth-callback',
+      redirectTo: resolveAuthRedirectUrl(
+        isWeb: kIsWeb,
+        baseUri: Uri.base,
+        webPath: '/reset-password',
+      ),
     );
   }
 

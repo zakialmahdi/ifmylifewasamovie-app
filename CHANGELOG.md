@@ -10,7 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Calendar Feeling / Song Cover Toggle**: Switch day circles on the Calendar page between mood hatch swatches and circular song album covers.
 - **Splash Screen App Update Check**: Checks active releases in Supabase (`public.app_releases`) on splash screen open and prompts users when a newer version is available.
+- **Demo Mode Update Popup Preview**: Added a **Preview update popup** button under Settings -> More in Demo Mode to inspect the release update alert on demand.
 - **First-Session Storyboard Onboarding**: 4-slide visual walkthrough with a direct YouTube Music setup step and skip note for newly registered users.
+
+### Coming Soon
+- **Calendar Widget**: Home screen widget to keep your monthly scene feelings and song album covers visible at a glance.
+- **Zine Export**: Printable, fold-out movie booklet generator compiling your monthly/seasonal scenes.
 
 ## [1.0.0-beta] - 2026-11-10
 

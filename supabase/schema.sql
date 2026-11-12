@@ -872,7 +872,7 @@ select
   'all',
   '1.1.0',
   2,
-  'Added calendar feeling/song album cover toggle, streamlined onboarding, and automatic update checks.',
+  'Added calendar feeling/song album cover toggle, streamlined onboarding, and automatic update checks. Coming soon: Calendar Widget & Zine Export.',
   'https://github.com/zakialmahdi/ifmylifewasamovie-app/releases/latest',
   false,
   true

@@ -748,7 +748,15 @@ class _SongPickerState extends State<SongPicker> {
                       size: 13,
                     ),
                   ),
-                  const Note('tap ▷ for 30s preview', size: 13),
+                  const InlineIconNote(
+                    prefix: 'tap ',
+                    icon: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 2),
+                      child: SketchPlayIcon(playing: false, size: 9, color: Ink.soft),
+                    ),
+                    suffix: ' for 30s preview',
+                    size: 13,
+                  ),
                 ],
               ),
               if (_error != null) ...[

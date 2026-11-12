@@ -9,6 +9,28 @@ import 'package:google_fonts/google_fonts.dart';
 import 'services/youtube_music_service.dart';
 import 'state.dart';
 
+// ───────────────────────── responsive sizing ─────────────────────────
+
+/// Computes a dynamic content max-width based on the available [screenWidth].
+///
+/// - Mobile (`<= 600`): spans full screen width (`double.infinity`).
+/// - Medium / Tablet (`601..960`): scales smoothly from `600` up to `816`.
+/// - Desktop / Wide (`> 960`): scales smoothly up to `960` for comfortable reading.
+double responsiveLayoutWidth(double screenWidth) {
+  if (screenWidth <= 600) return double.infinity;
+  if (screenWidth <= 960) {
+    return 600 + (screenWidth - 600) * 0.6;
+  }
+  return math.min(960.0, 816 + (screenWidth - 960) * 0.35);
+}
+
+/// Computes a dynamic modal/dialog max-width based on [screenWidth].
+double responsiveDialogWidth(double screenWidth) {
+  if (screenWidth <= 600) return 380.0;
+  if (screenWidth <= 960) return 440.0;
+  return 480.0;
+}
+
 // ───────────────────────── palette & type ─────────────────────────
 
 class Ink {
@@ -54,6 +76,37 @@ class Note extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Text(text, textAlign: align, style: T.note(size, c: color));
+}
+
+/// Renders a handwritten [Note]-styled hint with an inline vector [icon],
+/// avoiding cross-device Unicode emoji fallback (e.g. `▶` rendering as `▶️`).
+class InlineIconNote extends StatelessWidget {
+  final String prefix;
+  final Widget icon;
+  final String suffix;
+  final double size;
+  final Color color;
+
+  const InlineIconNote({
+    super.key,
+    required this.prefix,
+    required this.icon,
+    required this.suffix,
+    this.size = 15,
+    this.color = Ink.soft,
+  });
+
+  @override
+  Widget build(BuildContext context) => Text.rich(
+        TextSpan(
+          style: T.note(size, c: color),
+          children: [
+            if (prefix.isNotEmpty) TextSpan(text: prefix),
+            WidgetSpan(alignment: PlaceholderAlignment.middle, child: icon),
+            if (suffix.isNotEmpty) TextSpan(text: suffix),
+          ],
+        ),
+      );
 }
 
 class SectionTitle extends StatelessWidget {
@@ -1140,7 +1193,12 @@ Future<R?> showSketchDialog<R>(BuildContext context, WidgetBuilder builder) {
           padding: const EdgeInsets.all(24),
           child: Material(
             type: MaterialType.transparency,
-            child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 380), child: builder(c)),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: responsiveDialogWidth(MediaQuery.sizeOf(c).width),
+              ),
+              child: builder(c),
+            ),
           ),
         ),
       ),
@@ -1170,9 +1228,16 @@ class SketchDialogCard extends StatelessWidget {
         const SizedBox(height: 10),
         ClipRect(child: body),
         const SizedBox(height: 16),
-        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-          for (final a in actions) Padding(padding: const EdgeInsets.only(left: 10), child: a),
-        ]),
+        SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 10,
+            runSpacing: 8,
+            children: actions,
+          ),
+        ),
       ]),
     );
   }

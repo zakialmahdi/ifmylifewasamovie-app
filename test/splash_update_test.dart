@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:if_my_life_was_a_movie/main.dart';
+import 'package:if_my_life_was_a_movie/pages/settings_page.dart';
 import 'package:if_my_life_was_a_movie/services/app_version_service.dart';
+import 'package:if_my_life_was_a_movie/state.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -249,6 +251,67 @@ void main() {
 
       expect(find.text('NEW UPDATE READY'), findsOneWidget);
       expect(find.text('V1.0.2'), findsOneWidget);
+    });
+  });
+
+  group('Demo mode update popup preview', () {
+    testWidgets('shows Preview update popup button in demo Settings and opens/dismisses alert', (tester) async {
+      app.enterDemoMode();
+      addTearDown(() => app.demoMode = false);
+
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: SettingsPage())),
+      );
+      await tester.pumpAndSettle();
+
+      final buttonFinder = find.text('Preview update popup');
+      await tester.scrollUntilVisible(buttonFinder, 300, scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
+      expect(buttonFinder, findsOneWidget);
+
+      await tester.tap(buttonFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('NEW UPDATE READY'), findsOneWidget);
+      expect(find.text('V1.2.0'), findsOneWidget);
+      expect(
+        find.text('your version: v${AppVersionService.kFallbackVersion}'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('LATER'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('NEW UPDATE READY'), findsNothing);
+      expect(buttonFinder, findsOneWidget);
+    });
+
+    testWidgets('hides Preview update popup button outside demo mode', (tester) async {
+      app.demoMode = false;
+      app.user = null;
+
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: SettingsPage())),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('About this app'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('About this app'), findsOneWidget);
+      expect(find.text('Preview update popup'), findsNothing);
     });
   });
 }

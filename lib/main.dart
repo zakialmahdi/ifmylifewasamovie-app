@@ -181,7 +181,11 @@ class _SplashGateState extends State<SplashGate> with SingleTickerProviderStateM
                             child: SingleChildScrollView(
                               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                               child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 380),
+                                constraints: BoxConstraints(
+                                  maxWidth: responsiveDialogWidth(
+                                    MediaQuery.sizeOf(context).width,
+                                  ),
+                                ),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [

@@ -209,11 +209,16 @@ class PaperScaffold extends StatelessWidget {
               backgroundColor: Colors.transparent,
               resizeToAvoidBottomInset: true,
               body: SafeArea(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 460),
-                    child: child,
-                  ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxWidth = responsiveLayoutWidth(constraints.maxWidth);
+                    return Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: maxWidth),
+                        child: child,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -307,32 +312,42 @@ class _AppShellState extends State<AppShell> {
           backgroundColor: Colors.transparent,
           resizeToAvoidBottomInset: true,
           body: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: widget.navigationShell,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-                      child: RepaintBoundary(
-                        child: SketchNav(
-                          currentIndex: widget.navigationShell.currentIndex,
-                          onTabSelected: (index) {
-                            app.setTab(index);
-                            widget.navigationShell.goBranch(
-                              index,
-                              initialLocation: index == widget.navigationShell.currentIndex,
-                            );
-                          },
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final maxWidth = responsiveLayoutWidth(constraints.maxWidth);
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: widget.navigationShell,
                         ),
-                      ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: maxWidth > 640 ? 640 : maxWidth,
+                            ),
+                            child: RepaintBoundary(
+                              child: SketchNav(
+                                currentIndex: widget.navigationShell.currentIndex,
+                                onTabSelected: (index) {
+                                  app.setTab(index);
+                                  widget.navigationShell.goBranch(
+                                    index,
+                                    initialLocation: index == widget.navigationShell.currentIndex,
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ),

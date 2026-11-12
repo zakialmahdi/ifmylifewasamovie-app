@@ -1,7 +1,8 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:if_my_life_was_a_movie/router.dart';
+import 'package:if_my_life_was_a_movie/sketch.dart';
 import 'package:if_my_life_was_a_movie/state.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -220,5 +221,96 @@ void main() {
     );
     expect(authRedirect(fakeContext, homeState), isNull);
     app.user = null;
+  });
+
+  test('resolveAuthRedirectUrl preserves Netlify web origin and mobile deep link', () {
+    expect(
+      resolveAuthRedirectUrl(
+        isWeb: true,
+        baseUri: Uri.parse('https://ifmylifewasamovie.netlify.app/auth?from=%2F'),
+      ),
+      equals('https://ifmylifewasamovie.netlify.app/'),
+    );
+    expect(
+      resolveAuthRedirectUrl(
+        isWeb: true,
+        baseUri: Uri.parse('https://ifmylifewasamovie.netlify.app/auth'),
+        webPath: '/reset-password',
+      ),
+      equals('https://ifmylifewasamovie.netlify.app/reset-password'),
+    );
+    expect(
+      resolveAuthRedirectUrl(
+        isWeb: true,
+        baseUri: Uri.parse('file:///C:/app/test.dart'),
+      ),
+      isNull,
+    );
+    expect(
+      resolveAuthRedirectUrl(
+        isWeb: false,
+        baseUri: Uri.parse('https://ifmylifewasamovie.netlify.app/auth'),
+      ),
+      equals('io.supabase.flutter://auth-callback'),
+    );
+  });
+
+  test('responsiveLayoutWidth dynamically scales width based on screen width', () {
+    // Mobile devices (<= 600) use full width
+    expect(responsiveLayoutWidth(360), equals(double.infinity));
+    expect(responsiveLayoutWidth(412), equals(double.infinity));
+    expect(responsiveLayoutWidth(600), equals(double.infinity));
+
+    // Tablet / foldables (601..960) dynamically expand beyond 600
+    final tabletWidth = responsiveLayoutWidth(768);
+    expect(tabletWidth, greaterThan(600));
+    expect(tabletWidth, lessThan(800));
+
+    // Desktop / widescreen (> 960) dynamically scales up to 960
+    final desktopWidth = responsiveLayoutWidth(1280);
+    expect(desktopWidth, greaterThan(816));
+    expect(desktopWidth, lessThanOrEqualTo(960));
+  });
+
+  testWidgets('PaperScaffold dynamically sizes its content box for different screen sizes', (tester) async {
+    // 1. Mobile screen (360px wide)
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: PaperScaffold(
+          child: Text('RESPONSIVE_CONTENT'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final mobileBox = tester.widget<ConstrainedBox>(
+      find.byWidgetPredicate(
+        (w) => w is ConstrainedBox && w.child is Text && (w.child as Text).data == 'RESPONSIVE_CONTENT',
+      ),
+    );
+    expect(mobileBox.constraints.maxWidth, equals(double.infinity));
+
+    // 2. Desktop screen (1200px wide)
+    tester.view.physicalSize = const Size(1200, 900);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: PaperScaffold(
+          child: Text('RESPONSIVE_CONTENT'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final desktopBox = tester.widget<ConstrainedBox>(
+      find.byWidgetPredicate(
+        (w) => w is ConstrainedBox && w.child is Text && (w.child as Text).data == 'RESPONSIVE_CONTENT',
+      ),
+    );
+    expect(desktopBox.constraints.maxWidth, equals(responsiveLayoutWidth(1200)));
+    expect(desktopBox.constraints.maxWidth, greaterThan(800));
   });
 }

@@ -7,6 +7,7 @@ import '../services/app_version_service.dart';
 import '../services/youtube_music_service.dart';
 import '../sketch.dart';
 import '../state.dart';
+import '../widgets/app_update_dialog.dart';
 import '../widgets/privacy_lock_widgets.dart';
 import '../widgets/suggestion_dialog.dart';
 import '../widgets/youtube_login_sheet.dart';
@@ -1357,8 +1358,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Note('invite ticket: ${app.inviteCode}', size: 14),
-                      const Spacer(),
+                      Expanded(child: Note('invite ticket: ${app.inviteCode}', size: 14)),
+                      const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () {
                           Clipboard.setData(ClipboardData(text: app.inviteCode));
@@ -1487,6 +1488,14 @@ class _SettingsPageState extends State<SettingsPage> {
               82,
               () => _about(context),
             )),
+            if (app.demoMode)
+              r(_navRow(
+                Icons.system_update_outlined,
+                'Preview update popup',
+                'demo: see how the new version alert looks',
+                84,
+                () => showAppUpdatePreviewDialog(context),
+              )),
 
             const SizedBox(height: 14),
             r(const SectionTitle('Session & danger zone')),
