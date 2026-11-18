@@ -139,6 +139,7 @@ class Entry {
   final int scene;
   final int cheers;
   final bool cheeredByMe;
+  final List<String> cheeredByNames;
 
   const Entry({
     this.dbId,
@@ -149,6 +150,7 @@ class Entry {
     required this.scene,
     this.cheers = 0,
     this.cheeredByMe = false,
+    this.cheeredByNames = const [],
   });
 
   Entry copyWith({
@@ -159,6 +161,7 @@ class Entry {
     int? scene,
     int? cheers,
     bool? cheeredByMe,
+    List<String>? cheeredByNames,
   }) => Entry(
         dbId: dbId ?? this.dbId,
         date: date,
@@ -168,6 +171,7 @@ class Entry {
         scene: scene ?? this.scene,
         cheers: cheers ?? this.cheers,
         cheeredByMe: cheeredByMe ?? this.cheeredByMe,
+        cheeredByNames: cheeredByNames ?? this.cheeredByNames,
       );
 }
 
@@ -336,6 +340,7 @@ class AppState extends ChangeNotifier {
   RealtimeChannel? _friendshipsChannel;
   RealtimeChannel? _cheersChannel;
   final Set<int> _notifiedInviteIds = <int>{};
+  final Set<String> _notifiedCheerKeys = <String>{};
 
   User? user;
   bool demoMode = false;
@@ -449,6 +454,8 @@ class AppState extends ChangeNotifier {
         setTab(2);
       } else if (payload == 'daily_reminder') {
         setTab(0);
+      } else if (payload == 'scene_cheer') {
+        setTab(1);
       }
     };
 
@@ -459,6 +466,8 @@ class AppState extends ChangeNotifier {
         tab = 2;
       } else if (payload == 'daily_reminder') {
         tab = 0;
+      } else if (payload == 'scene_cheer') {
+        tab = 1;
       }
     }
 
@@ -467,6 +476,7 @@ class AppState extends ChangeNotifier {
     await _loadReminderSettings();
     await _loadSharingSettings();
     await _loadNotifiedInvites();
+    await _loadNotifiedCheers();
     await _loadIntroSettings();
     unawaited(_rescheduleReminders());
 
@@ -581,6 +591,8 @@ class AppState extends ChangeNotifier {
     _entries.clear();
     friends.clear();
     invites.clear();
+    _notifiedInviteIds.clear();
+    _notifiedCheerKeys.clear();
     moods
       ..clear()
       ..addAll(const <Mood>[hopeful, restless, dreamy, tired]);
@@ -770,6 +782,7 @@ class AppState extends ChangeNotifier {
         'last_song.json',
         'sharing_settings.json',
         'notified_invites.json',
+        'notified_cheers.json',
         'reminder_settings.json',
         'intro_seen.json',
       ];
@@ -898,6 +911,8 @@ class AppState extends ChangeNotifier {
     _entries.clear();
     friends.clear();
     invites.clear();
+    _notifiedInviteIds.clear();
+    _notifiedCheerKeys.clear();
     moods
       ..clear()
       ..addAll(const <Mood>[hopeful, restless, dreamy, tired]);
@@ -1218,21 +1233,63 @@ class AppState extends ChangeNotifier {
       }
     }
 
+    final mySceneIds = _entries.values.map((e) => e.dbId).whereType<int>().toList();
+    final allSceneIds = <int>{...allPeerSceneIds, ...mySceneIds}.toList();
+
     final cheerCounts = <int, int>{};
     final cheeredByMe = <int>{};
-    if (allPeerSceneIds.isNotEmpty) {
+    final cheerUserIdsByScene = <int, List<String>>{};
+    final allCheerUserIds = <String>{};
+
+    if (allSceneIds.isNotEmpty) {
       final cheerRows = await _sb
           .from('scene_cheers')
           .select()
-          .inFilter('scene_id', allPeerSceneIds);
+          .inFilter('scene_id', allSceneIds);
       for (final c in cheerRows) {
         final sid = (c['scene_id'] as num?)?.toInt();
         final cid = c['user_id'] as String?;
-        if (sid == null) continue;
+        if (sid == null || cid == null) continue;
         cheerCounts[sid] = (cheerCounts[sid] ?? 0) + 1;
         if (cid == uid) cheeredByMe.add(sid);
+        (cheerUserIdsByScene[sid] ??= <String>[]).add(cid);
+        allCheerUserIds.add(cid);
       }
     }
+
+    final missingProfileIds = allCheerUserIds.where((id) => !profileById.containsKey(id)).toList();
+    if (missingProfileIds.isNotEmpty) {
+      try {
+        final missingProfRows = await _sb
+            .from('profiles')
+            .select()
+            .inFilter('id', missingProfileIds);
+        for (final p in missingProfRows) {
+          final id = p['id'] as String?;
+          if (id != null) profileById[id] = p;
+        }
+      } catch (_) {}
+    }
+
+    final cheerNamesByScene = <int, List<String>>{};
+    cheerUserIdsByScene.forEach((sid, userIds) {
+      final names = <String>[];
+      for (final uId in userIds) {
+        final prof = profileById[uId];
+        final dName = (prof?['display_name'] as String?)?.trim();
+        final dHandle = (prof?['handle'] as String?)?.trim();
+        if (dName != null && dName.isNotEmpty) {
+          names.add(dName);
+        } else if (dHandle != null && dHandle.isNotEmpty) {
+          names.add(dHandle);
+        } else if (uId == uid) {
+          names.add(name);
+        } else {
+          names.add('a co-star');
+        }
+      }
+      cheerNamesByScene[sid] = names;
+    });
 
     for (final userEntries in scenesByUser.values) {
       for (final key in userEntries.keys.toList()) {
@@ -1242,7 +1299,50 @@ class AppState extends ChangeNotifier {
           userEntries[key] = entry.copyWith(
             cheers: cheerCounts[sid] ?? 0,
             cheeredByMe: cheeredByMe.contains(sid),
+            cheeredByNames: cheerNamesByScene[sid] ?? const [],
           );
+        }
+      }
+    }
+
+    // Also update current user's personal journal scenes with their cheers and cheerer names
+    for (final key in _entries.keys.toList()) {
+      final entry = _entries[key]!;
+      final sid = entry.dbId;
+      if (sid != null) {
+        _entries[key] = entry.copyWith(
+          cheers: cheerCounts[sid] ?? 0,
+          cheeredByMe: cheeredByMe.contains(sid),
+          cheeredByNames: cheerNamesByScene[sid] ?? const [],
+        );
+      }
+    }
+
+    // Check for newly discovered cheers on user's own journal scenes
+    for (final sid in mySceneIds) {
+      final userIds = cheerUserIdsByScene[sid] ?? const [];
+      final myEntry = _entries.values.where((e) => e.dbId == sid).firstOrNull;
+      if (myEntry == null) continue;
+      for (final cid in userIds) {
+        if (cid == uid) continue;
+        final cheerKey = '${sid}_$cid';
+        if (!_notifiedCheerKeys.contains(cheerKey)) {
+          _notifiedCheerKeys.add(cheerKey);
+          unawaited(_persistNotifiedCheers());
+
+          final prof = profileById[cid];
+          final cheererName = (prof?['display_name'] as String?)?.trim() ?? 'a co-star';
+          final cheererHandle = (prof?['handle'] as String?)?.trim() ?? '';
+          final handlePart = cheererHandle.isNotEmpty ? ' ($cheererHandle)' : '';
+          final dateStr = dayLabel(myEntry.date);
+
+          inAppReminder.value = '$cheererName$handlePart cheered your scene for $dateStr! 🍿';
+          unawaited(ReminderService.instance.showSceneCheerNotification(
+            cheererName: cheererName,
+            cheererHandle: cheererHandle,
+            sceneDate: dateStr,
+            sceneId: sid,
+          ));
         }
       }
     }
@@ -1427,6 +1527,63 @@ class AppState extends ChangeNotifier {
             schema: 'public',
             table: 'scene_cheers',
             callback: (PostgresChangePayload payload) async {
+              final event = payload.eventType;
+              final newRecord = payload.newRecord;
+              final sid = (newRecord['scene_id'] as num?)?.toInt();
+              final cheererId = newRecord['user_id'] as String?;
+
+              if (event == PostgresChangeEvent.insert && sid != null && cheererId != null && cheererId != uid) {
+                var myEntry = _entries.values.where((e) => e.dbId == sid).firstOrNull;
+                if (myEntry == null) {
+                  try {
+                    final sRow = await _sb.from('scenes').select('id, user_id, scene_date').eq('id', sid).maybeSingle();
+                    if (sRow != null && sRow['user_id'] == uid) {
+                      final dateStr = sRow['scene_date'] as String?;
+                      if (dateStr != null) {
+                        final parts = dateStr.split('-');
+                        final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+                        myEntry = _entries[dayKey(d)];
+                      }
+                    }
+                  } catch (_) {}
+                }
+
+                if (myEntry != null) {
+                  final cheerKey = '${sid}_$cheererId';
+                  if (!_notifiedCheerKeys.contains(cheerKey)) {
+                    _notifiedCheerKeys.add(cheerKey);
+                    unawaited(_persistNotifiedCheers());
+
+                    String cheererName = 'a co-star';
+                    String cheererHandle = '';
+                    final friend = friends.where((f) => f.id == cheererId).firstOrNull;
+                    if (friend != null) {
+                      cheererName = friend.name;
+                      cheererHandle = friend.handle;
+                    } else {
+                      try {
+                        final p = await _sb.from('profiles').select('display_name, handle').eq('id', cheererId).maybeSingle();
+                        if (p != null) {
+                          cheererName = (p['display_name'] as String?)?.trim() ?? cheererName;
+                          cheererHandle = (p['handle'] as String?)?.trim() ?? '';
+                        }
+                      } catch (_) {}
+                    }
+
+                    final dateStr = dayLabel(myEntry.date);
+                    final handlePart = cheererHandle.isNotEmpty ? ' ($cheererHandle)' : '';
+                    inAppReminder.value = '$cheererName$handlePart cheered your scene for $dateStr! 🍿';
+
+                    unawaited(ReminderService.instance.showSceneCheerNotification(
+                      cheererName: cheererName,
+                      cheererHandle: cheererHandle,
+                      sceneDate: dateStr,
+                      sceneId: sid,
+                    ));
+                  }
+                }
+              }
+
               await _loadFriendsFromDb(uid);
               notifyListeners();
             },
@@ -1450,36 +1607,43 @@ class AppState extends ChangeNotifier {
   Map<String, Entry> _buildSceneMap(
     List<(int, int, Mood, String)> seeds, {
     int defaultCheers = 0,
+    List<String> defaultCheeredBy = const [],
   }) {
     final map = <String, Entry>{};
     for (final (daysAgo, songIdx, mood, note) in seeds) {
       final d = DateTime(today.year, today.month, today.day - daysAgo);
+      final count = daysAgo == 0
+          ? defaultCheers
+          : (defaultCheers > 0 ? (daysAgo % (defaultCheers + 1)) : 0);
       map[dayKey(d)] = Entry(
         date: d,
         song: catalog[songIdx % catalog.length],
         mood: mood,
         note: note,
         scene: sceneNo(d),
-        cheers: daysAgo == 0
-            ? defaultCheers
-            : (defaultCheers > 0 ? (daysAgo % (defaultCheers + 1)) : 0),
+        cheers: count,
+        cheeredByNames: count > 0 ? defaultCheeredBy : const [],
       );
     }
     return map;
   }
 
   void _seed() {
-    _entries.addAll(_buildSceneMap(const <(int, int, Mood, String)>[
-      (1, 1, dreamy, 'stared out the bus window pretending it was an opening montage.'),
-      (2, 2, hopeful, 'sunlight hit the kitchen table right as the chorus dropped.'),
-      (3, 4, tired, 'coffee went cold twice before noon, but the evening felt gentle.'),
-      (4, 5, restless, 'walked three extra blocks just so the outro could finish.'),
-      (5, 3, dreamy, 'rain on the fire escape – pure end-credits energy.'),
-      (7, 8, tired, 'slow Sunday laundry & vinyl crackle in my head.'),
-      (9, 9, hopeful, 'ran for the train and actually made it before the doors closed.'),
-      (12, 6, dreamy, 'midnight kitchen snack with only the fridge light on.'),
-      (15, 7, restless, 'typed a long message, deleted it, kept walking.'),
-    ]));
+    _entries.addAll(_buildSceneMap(
+      const <(int, int, Mood, String)>[
+        (1, 1, dreamy, 'stared out the bus window pretending it was an opening montage.'),
+        (2, 2, hopeful, 'sunlight hit the kitchen table right as the chorus dropped.'),
+        (3, 4, tired, 'coffee went cold twice before noon, but the evening felt gentle.'),
+        (4, 5, restless, 'walked three extra blocks just so the outro could finish.'),
+        (5, 3, dreamy, 'rain on the fire escape – pure end-credits energy.'),
+        (7, 8, tired, 'slow Sunday laundry & vinyl crackle in my head.'),
+        (9, 9, hopeful, 'ran for the train and actually made it before the doors closed.'),
+        (12, 6, dreamy, 'midnight kitchen snack with only the fridge light on.'),
+        (15, 7, restless, 'typed a long message, deleted it, kept walking.'),
+      ],
+      defaultCheers: 2,
+      defaultCheeredBy: const ['jules', 'theo'],
+    ));
   }
 
   void _seedFriends() {
@@ -2832,6 +2996,29 @@ class AppState extends ChangeNotifier {
       final docs = await getApplicationDocumentsDirectory();
       final file = File('${docs.path}/notified_invites.json');
       await file.writeAsString(jsonEncode(_notifiedInviteIds.toList()), flush: true);
+    } catch (_) {}
+  }
+
+  Future<void> _loadNotifiedCheers() async {
+    if (kIsWeb) return;
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      final file = File('${docs.path}/notified_cheers.json');
+      if (await file.exists()) {
+        final list = jsonDecode(await file.readAsString()) as List<dynamic>?;
+        if (list != null) {
+          _notifiedCheerKeys.addAll(list.whereType<String>());
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _persistNotifiedCheers() async {
+    if (kIsWeb) return;
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      final file = File('${docs.path}/notified_cheers.json');
+      await file.writeAsString(jsonEncode(_notifiedCheerKeys.toList()), flush: true);
     } catch (_) {}
   }
 

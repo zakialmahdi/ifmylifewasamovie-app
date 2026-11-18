@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.3] - 2026-11-18
 
 ### Added
+- **Journal Cheers Perspective & Co-Star Identification**: Scenes in the user's personal journal now display received cheers and who cheered, with a tap-to-view dialog listing all friends who cheered, calendar day heart indicators, and home page cheer counters.
+- **Realtime Cheer Notifications**: Instant in-app banner and system push notifications when a friend cheers on the user's scene, identifying who cheered by name and handle with direct navigation to the scene.
+- **Realtime Cheer Replication**: Added full row replication and publication on `public.scene_cheers` in Supabase Realtime.
 - **Pattern Swatch Selection on Scene Editor**: Adding or updating journal scenes from the Calendar page now features the full horizontal calendar pattern swatch selector, matching the Home page experience.
 - **Friend Feel Viewing on Friends Page**: View connected friends' exact feeling badges on the Today's Moods card and shared scene details, plus a `song | feeling` toggle on the shared calendar with friend feeling legends.
 - **Custom Feelings Persistence**: Custom feelings and pattern swatches are saved to and restored from user profiles in Supabase (`profiles.custom_moods`).

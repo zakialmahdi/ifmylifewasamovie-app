@@ -549,6 +549,35 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ])),
+            if (app.savedToday && (app.entryFor(app.today)?.cheers ?? 0) > 0) ...[
+              const SizedBox(height: 10),
+              r(Builder(builder: (context) {
+                final todayEntry = app.entryFor(app.today)!;
+                return SketchBox(
+                  shadow: false,
+                  fill: Ink.paper,
+                  jitter: 1.1,
+                  strokeWidth: 1.1,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.favorite, size: 14, color: Ink.ink),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          todayEntry.cheeredByNames.isNotEmpty
+                              ? '${todayEntry.cheers} ${todayEntry.cheers == 1 ? "cheer" : "cheers"} today · cheered by ${todayEntry.cheeredByNames.join(", ")}'
+                              : '${todayEntry.cheers} ${todayEntry.cheers == 1 ? "cheer" : "cheers"} today',
+                          style: T.body(12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              })),
+            ],
             const SizedBox(height: 22),
 
             // ── previous scenes
@@ -595,6 +624,14 @@ class _HomePageState extends State<HomePage> {
                               style: T.body(12, c: Ink.soft), overflow: TextOverflow.ellipsis),
                         ]),
                       ),
+                      if (recent[k].cheers > 0) ...[
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.favorite, size: 12, color: Ink.ink),
+                          const SizedBox(width: 3),
+                          Text('${recent[k].cheers}', style: T.body(12)),
+                        ]),
+                        const SizedBox(width: 6),
+                      ],
                       Text(weekday(recent[k].date),
                           style: T.note(17, c: Ink.ink).copyWith(fontWeight: FontWeight.w700)),
                       const SizedBox(width: 6),

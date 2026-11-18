@@ -326,6 +326,35 @@ class ReminderService {
     }
   }
 
+  /// Posts a system phone notification when a friend cheers on the user's journal scene.
+  Future<bool> showSceneCheerNotification({
+    required String cheererName,
+    required String cheererHandle,
+    required String sceneDate,
+    int? sceneId,
+  }) async {
+    if (!isSupported) return false;
+    await init();
+    if (!_initialized) return false;
+    try {
+      final notifId = sceneId != null
+          ? (_baseId + 3000 + (sceneId % 5000))
+          : (_baseId + 3000);
+      final handleStr = cheererHandle.isNotEmpty ? ' ($cheererHandle)' : '';
+      await _plugin.show(
+        id: notifId,
+        title: 'NEW CHEER ON YOUR REEL 🍿',
+        body: '$cheererName$handleStr cheered your scene for $sceneDate!',
+        notificationDetails: _reelInviteDetails,
+        payload: 'scene_cheer',
+      );
+      return true;
+    } catch (e) {
+      debugPrint('ReminderService.showSceneCheerNotification failed: $e');
+      return false;
+    }
+  }
+
   Future<AndroidScheduleMode> _scheduleMode() async {
     if (defaultTargetPlatform != TargetPlatform.android) {
       return AndroidScheduleMode.exactAllowWhileIdle;

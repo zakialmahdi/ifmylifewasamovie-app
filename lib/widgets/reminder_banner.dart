@@ -61,8 +61,13 @@ class _ReminderBannerHostState extends State<ReminderBannerHost>
   void _onBannerTap() {
     final msg = app.inAppReminder.value ?? '';
     app.dismissInAppReminder();
-    final isReel = msg.toLowerCase().contains('reel') || msg.toLowerCase().contains('co-star');
-    if (isReel) {
+    final lower = msg.toLowerCase();
+    final isCheer = lower.contains('cheer');
+    final isReel = lower.contains('reel') || lower.contains('co-star');
+    if (isCheer) {
+      app.setTab(1);
+      appRouter.go('/calendar');
+    } else if (isReel) {
       app.setTab(2);
       appRouter.go('/friends');
     } else {

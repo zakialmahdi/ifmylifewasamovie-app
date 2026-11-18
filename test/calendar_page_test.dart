@@ -572,4 +572,51 @@ void main() {
       expect(whimsicalMood!.hatch, Hatch.vertical);
     }, createHttpClient: (_) => _StubHttpClient());
   });
+
+  testWidgets('User journal perspective displays cheers and notified when co-star cheers', (tester) async {
+    await HttpOverrides.runZoned(() async {
+      app.enterDemoMode();
+      addTearDown(() => app.demoMode = false);
+
+      // Verify user's own seeded entries have cheers and cheerer names in demo mode
+      final entry = app.entryFor(DateTime(app.today.year, app.today.month, app.today.day - 1));
+      expect(entry, isNotNull);
+      expect(entry!.cheers, greaterThan(0));
+      expect(entry.cheeredByNames, contains('jules'));
+
+      tester.view.physicalSize = const Size(360, 1800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(const MaterialApp(home: Scaffold(body: CalendarPage())));
+      await tester.pumpAndSettle();
+
+      // Select yesterday's scene
+      final yesterday = DateTime(app.today.year, app.today.month, app.today.day - 1);
+      app.select(yesterday);
+      await tester.pumpAndSettle();
+
+      // Verify cheer badge is visible in _detail view for user's own scene
+      expect(find.textContaining('cheered by jules'), findsOneWidget);
+      expect(find.byIcon(Icons.favorite), findsWidgets);
+
+      // Tap on the cheers badge to open dialog
+      final cheerBadgeFinder = find.textContaining('cheered by jules');
+      await tester.tap(cheerBadgeFinder);
+      await tester.pumpAndSettle();
+
+      // Verify the dialog opened with dialog card and co-star name
+      expect(find.text('SCENE CHEERS 🍿'), findsOneWidget);
+      expect(find.text('jules'), findsWidgets);
+      expect(find.text('theo'), findsWidgets);
+
+      // Close dialog
+      await tester.tap(find.widgetWithText(SketchTextButton, 'CLOSE'));
+      await tester.pumpAndSettle();
+
+      // Verify in-app reminder notification format when someone cheers user's journal
+      app.inAppReminder.value = 'jules (@jules) cheered your scene for yesterday! 🍿';
+      expect(app.inAppReminder.value, contains('jules (@jules) cheered your scene'));
+    }, createHttpClient: (_) => _StubHttpClient());
+  });
 }

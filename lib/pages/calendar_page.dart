@@ -217,6 +217,20 @@ class _CalendarPageState extends State<CalendarPage> {
                     builder: (_, s, ring) => Transform.scale(scale: s, child: ring),
                   ),
                 ),
+              if (e != null && e.cheers > 0)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Ink.paper,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Ink.ink, width: 1),
+                    ),
+                    child: const Icon(Icons.favorite, size: 8, color: Ink.ink),
+                  ),
+                ),
             ]),
           ),
           Text('${d.day}',
@@ -320,6 +334,39 @@ class _CalendarPageState extends State<CalendarPage> {
                     const DashedLine(),
                     const SizedBox(height: 8),
                     Text('“${e.note}”', style: T.note(18, c: Ink.ink)),
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: e.cheers > 0 ? () => _showCheersDialog(context, e) : null,
+                      child: SketchBox(
+                        shadow: false,
+                        fill: e.cheers > 0 ? Ink.paper : Ink.bg,
+                        jitter: 1.1,
+                        strokeWidth: 1.1,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              e.cheers > 0 ? Icons.favorite : Icons.favorite_border,
+                              size: 14,
+                              color: Ink.ink,
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                e.cheers > 0
+                                    ? (e.cheeredByNames.isNotEmpty
+                                        ? '${e.cheers} ${e.cheers == 1 ? "cheer" : "cheers"} · cheered by ${e.cheeredByNames.join(", ")}'
+                                        : '${e.cheers} ${e.cheers == 1 ? "cheer" : "cheers"}')
+                                    : '0 cheers on this scene',
+                                style: T.body(12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -342,6 +389,41 @@ class _CalendarPageState extends State<CalendarPage> {
                     ),
                   ],
                 ),
+        ),
+      ),
+    );
+  }
+
+  void _showCheersDialog(BuildContext context, Entry e) {
+    if (e.cheers == 0) return;
+    showSketchDialog<void>(
+      context,
+      (ctx) => SketchDialogCard(
+        title: 'scene cheers 🍿',
+        actions: [
+          SketchTextButton('close', onTap: () => Navigator.pop(ctx)),
+        ],
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Note('${dayLabel(e.date)} · ${e.cheers} ${e.cheers == 1 ? "cheer" : "cheers"}', size: 14),
+            const SizedBox(height: 10),
+            if (e.cheeredByNames.isEmpty)
+              const Text('Friends cheered this scene on your reel.', style: TextStyle(fontSize: 14))
+            else
+              for (final name in e.cheeredByNames)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.favorite, size: 13, color: Ink.ink),
+                      const SizedBox(width: 8),
+                      Text(name, style: T.body(14)),
+                    ],
+                  ),
+                ),
+          ],
         ),
       ),
     );

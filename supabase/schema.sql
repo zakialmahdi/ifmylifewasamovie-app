@@ -808,8 +808,9 @@ grant execute on function public.delete_my_account() to authenticated, service_r
 -- 9. Supabase Realtime Configuration
 -- ============================================================================
 
--- Enable full row replication for friendships so realtime subscribers receive all fields
+-- Enable full row replication for friendships and scene cheers so realtime subscribers receive all fields
 alter table public.friendships replica identity full;
+alter table public.scene_cheers replica identity full;
 
 -- Idempotently add friendships to supabase_realtime publication
 do $$
@@ -821,6 +822,19 @@ begin
       and tablename = 'friendships'
   ) then
     alter publication supabase_realtime add table public.friendships;
+  end if;
+end $$;
+
+-- Idempotently add scene_cheers to supabase_realtime publication
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'scene_cheers'
+  ) then
+    alter publication supabase_realtime add table public.scene_cheers;
   end if;
 end $$;
 
