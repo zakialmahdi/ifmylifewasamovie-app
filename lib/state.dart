@@ -137,6 +137,8 @@ class Entry {
   final Mood mood;
   final String note;
   final int scene;
+  final int cheers;
+  final bool cheeredByMe;
 
   const Entry({
     this.dbId,
@@ -145,15 +147,27 @@ class Entry {
     required this.mood,
     required this.note,
     required this.scene,
+    this.cheers = 0,
+    this.cheeredByMe = false,
   });
 
-  Entry copyWith({int? dbId, Song? song}) => Entry(
+  Entry copyWith({
+    int? dbId,
+    Song? song,
+    Mood? mood,
+    String? note,
+    int? scene,
+    int? cheers,
+    bool? cheeredByMe,
+  }) => Entry(
         dbId: dbId ?? this.dbId,
         date: date,
         song: song ?? this.song,
-        mood: mood,
-        note: note,
-        scene: scene,
+        mood: mood ?? this.mood,
+        note: note ?? this.note,
+        scene: scene ?? this.scene,
+        cheers: cheers ?? this.cheers,
+        cheeredByMe: cheeredByMe ?? this.cheeredByMe,
       );
 }
 
@@ -162,6 +176,7 @@ class Friend {
   final String name;
   final String handle;
   final Hatch avatar;
+  final String? avatarUrl;
   final Map<String, Entry> entries;
   final bool sharingEnabled;
   final int? friendshipId;
@@ -173,6 +188,7 @@ class Friend {
     required this.name,
     required this.handle,
     required this.avatar,
+    this.avatarUrl,
     required this.entries,
     this.sharingEnabled = true,
     this.friendshipId,
@@ -181,6 +197,18 @@ class Friend {
   });
 
   Entry? entryFor(DateTime d) => entries[dayKey(d)];
+
+  List<Mood> get moods {
+    final seen = <String>{};
+    final list = <Mood>[];
+    for (final e in entries.values) {
+      final key = '${e.mood.name}_${e.mood.hatch.name}';
+      if (seen.add(key)) {
+        list.add(e.mood);
+      }
+    }
+    return list;
+  }
 
   int streakFrom(DateTime today) {
     var count = 0;
@@ -204,6 +232,7 @@ class FriendInvite {
   final String name;
   final String handle;
   final Hatch avatar;
+  final String? avatarUrl;
   final List<(int, int, Mood, String)> seedScenes;
 
   const FriendInvite({
@@ -211,6 +240,7 @@ class FriendInvite {
     required this.name,
     required this.handle,
     required this.avatar,
+    this.avatarUrl,
     this.friendshipId,
     this.seedScenes = const <(int, int, Mood, String)>[],
   });
@@ -304,6 +334,7 @@ class AppState extends ChangeNotifier {
   SupabaseClient get _sb => Supabase.instance.client;
   StreamSubscription<AuthState>? _authSub;
   RealtimeChannel? _friendshipsChannel;
+  RealtimeChannel? _cheersChannel;
   final Set<int> _notifiedInviteIds = <int>{};
 
   User? user;
@@ -520,6 +551,10 @@ class AppState extends ChangeNotifier {
       _entries.clear();
       friends.clear();
       invites.clear();
+      moods
+        ..clear()
+        ..addAll(const <Mood>[hopeful, restless, dreamy, tired]);
+      draftMood = hopeful;
       tab = 0;
     }
   }
@@ -546,6 +581,10 @@ class AppState extends ChangeNotifier {
     _entries.clear();
     friends.clear();
     invites.clear();
+    moods
+      ..clear()
+      ..addAll(const <Mood>[hopeful, restless, dreamy, tired]);
+    draftMood = hopeful;
   }
 
   Future<void> signIn({
@@ -859,6 +898,10 @@ class AppState extends ChangeNotifier {
     _entries.clear();
     friends.clear();
     invites.clear();
+    moods
+      ..clear()
+      ..addAll(const <Mood>[hopeful, restless, dreamy, tired]);
+    draftMood = hopeful;
     _seed();
     _seedFriends();
     notifyListeners();
@@ -873,7 +916,7 @@ class AppState extends ChangeNotifier {
         e.message.contains('Could not find the table');
   }
 
-  Entry _entryFromRow(Map<String, dynamic> row) {
+  Entry _entryFromRow(Map<String, dynamic> row, {bool isOwnScene = false}) {
     final rawDate = row['scene_date'] as String;
     final parts = rawDate.split('-');
     final date = DateTime(
@@ -898,10 +941,20 @@ class AppState extends ChangeNotifier {
     );
     final moodName = ((row['mood_name'] as String?) ?? 'hopeful').trim().toLowerCase();
     final moodHatch = hatchFromName(row['mood_hatch'] as String?, Hatch.diagonal);
-    final existingMood = moods.where((m) => m.name.toLowerCase() == moodName).firstOrNull;
-    final mood = existingMood ?? Mood(moodName, moodHatch);
-    if (existingMood == null) {
-      moods.add(mood);
+
+    Mood mood;
+    if (isOwnScene) {
+      final existingMood = moods.where((m) => m.name.toLowerCase() == moodName).firstOrNull;
+      if (existingMood != null) {
+        mood = existingMood;
+      } else {
+        mood = Mood(moodName, moodHatch);
+        moods.add(mood);
+      }
+    } else {
+      // Connected friends' scenes preserve that friend's own feeling and hatch pattern.
+      // Must NEVER pollute or leak into the current user's personal app.moods list.
+      mood = Mood(moodName, moodHatch);
     }
     return Entry(
       dbId: (row['id'] as num?)?.toInt(),
@@ -911,6 +964,53 @@ class AppState extends ChangeNotifier {
       note: (row['note'] as String?) ?? '',
       scene: (row['scene_no'] as num?)?.toInt() ?? sceneNo(date),
     );
+  }
+
+  Future<Map<String, dynamic>?> _ensureProfileExists(String uid, {String? preferredName}) async {
+    try {
+      var profile = await _sb
+          .from('profiles')
+          .select()
+          .eq('id', uid)
+          .maybeSingle();
+
+      if (profile != null) return profile;
+
+      final seedName = (preferredName != null && preferredName.trim().isNotEmpty)
+          ? preferredName.trim()
+          : name;
+      final slug = _slug(seedName);
+      final short = _shortUserCode();
+      final genHandle =
+          '@${slug.substring(0, math.min<int>(slug.length, 12))}_${short.toLowerCase()}';
+      final genCode =
+          '${slug.toUpperCase().substring(0, math.min<int>(slug.length, 6))}-$short';
+
+      profile = await _sb
+          .from('profiles')
+          .upsert(
+            <String, dynamic>{
+              'id': uid,
+              'display_name': seedName,
+              'handle': genHandle,
+              'invite_code': genCode,
+              'paper': paper,
+              'daily_reminder': dailyReminder,
+              'mood_prompts': moodPrompts,
+              'privacy_lock': privacyLock,
+              'sharing_enabled': sharingEnabled,
+              'sharing_audience': sharingAudience,
+              'shared_friend_ids': sharedFriendIds.toList(),
+            },
+            onConflict: 'id',
+          )
+          .select()
+          .maybeSingle();
+      return profile;
+    } catch (e) {
+      debugPrint('ensureProfileExists error: $e');
+      return null;
+    }
   }
 
   Future<void> loadFromDatabase({String? preferredName}) async {
@@ -923,47 +1023,10 @@ class AppState extends ChangeNotifier {
 
     try {
       // 1. Ensure profile exists & load preferences
-      var profile = await _sb
-          .from('profiles')
-          .select()
-          .eq('id', uid)
-          .maybeSingle();
-
-      if (profile == null) {
-        if (!_seenIntroUsers.contains(uid) && !_suppressIntroOnSignIn) {
-          _hasSeenIntro = false;
-          notifyListeners();
-        }
-        final seedName = (preferredName != null && preferredName.trim().isNotEmpty)
-            ? preferredName.trim()
-            : name;
-        final slug = _slug(seedName);
-        final short = _shortUserCode();
-        final genHandle =
-            '@${slug.substring(0, math.min<int>(slug.length, 12))}_${short.toLowerCase()}';
-        final genCode =
-            '${slug.toUpperCase().substring(0, math.min<int>(slug.length, 6))}-$short';
-
-        profile = await _sb
-            .from('profiles')
-            .upsert(
-              <String, dynamic>{
-                'id': uid,
-                'display_name': seedName,
-                'handle': genHandle,
-                'invite_code': genCode,
-                'paper': paper,
-                'daily_reminder': dailyReminder,
-                'mood_prompts': moodPrompts,
-                'privacy_lock': privacyLock,
-                'sharing_enabled': sharingEnabled,
-                'sharing_audience': sharingAudience,
-                'shared_friend_ids': sharedFriendIds.toList(),
-              },
-              onConflict: 'id',
-            )
-            .select()
-            .maybeSingle();
+      var profile = await _ensureProfileExists(uid, preferredName: preferredName);
+      if (profile == null && !_seenIntroUsers.contains(uid) && !_suppressIntroOnSignIn) {
+        _hasSeenIntro = false;
+        notifyListeners();
       }
 
       dbReady = true;
@@ -987,6 +1050,22 @@ class AppState extends ChangeNotifier {
         if (rawSharedIds is List) {
           sharedFriendIds = rawSharedIds.whereType<String>().toSet();
         }
+        final rawCustomMoods = profile['custom_moods'];
+        if (rawCustomMoods is List && rawCustomMoods.isNotEmpty) {
+          moods.clear();
+          for (final item in rawCustomMoods) {
+            if (item is Map) {
+              final mName = (item['name'] as String?)?.trim().toLowerCase();
+              final mHatch = hatchFromName(item['hatch'] as String?, Hatch.diagonal);
+              if (mName != null && mName.isNotEmpty) {
+                moods.add(Mood(mName, mHatch));
+              }
+            }
+          }
+          if (moods.isEmpty) {
+            moods.addAll(const <Mood>[hopeful, restless, dreamy, tired]);
+          }
+        }
       }
 
       // 2. Load user's own scenes
@@ -997,10 +1076,24 @@ class AppState extends ChangeNotifier {
           .order('scene_date', ascending: false);
 
       if (user?.id != uid) return;
-      _entries.clear();
+      final loadedKeys = <String>{};
       for (final raw in sceneRows) {
-        final e = _entryFromRow(raw);
-        _entries[dayKey(e.date)] = e;
+        final e = _entryFromRow(raw, isOwnScene: true);
+        final k = dayKey(e.date);
+        loadedKeys.add(k);
+        _entries[k] = e;
+      }
+
+      // Preserve any locally recorded scenes that have not finished syncing yet
+      for (final localKey in _entries.keys.toList()) {
+        if (!loadedKeys.contains(localKey)) {
+          final localEntry = _entries[localKey];
+          if (localEntry != null) {
+            final seq = (_sceneOpSeq[localKey] ?? 0) + 1;
+            _sceneOpSeq[localKey] = seq;
+            unawaited(_persistScene(uid, localKey, localEntry, seq));
+          }
+        }
       }
 
       final todaySaved = _entries[dayKey(today)];
@@ -1090,6 +1183,7 @@ class AppState extends ChangeNotifier {
     incomingPending.forEach((relId, reqId) {
       final p = profileById[reqId];
       if (p != null) {
+        final rawAvatar = (p['avatar_url'] as String?)?.trim();
         nextInvites.add(
           FriendInvite(
             id: reqId,
@@ -1097,14 +1191,15 @@ class AppState extends ChangeNotifier {
             name: (p['display_name'] as String?) ?? 'co-star',
             handle: (p['handle'] as String?) ?? '@costar',
             avatar: hatchFromName(p['avatar_hatch'] as String?, Hatch.cross),
+            avatarUrl: (rawAvatar != null && rawAvatar.isNotEmpty) ? rawAvatar : null,
           ),
         );
       }
     });
 
-    // Build accepted friends + their shared scenes + today's cheers
+    // Build accepted friends + their shared scenes + all scene cheers
     final scenesByUser = <String, Map<String, Entry>>{};
-    final todaySceneIds = <int>[];
+    final allPeerSceneIds = <int>[];
     if (acceptedPeerIds.isNotEmpty) {
       final peerSceneRows = await _sb
           .from('scenes')
@@ -1115,21 +1210,21 @@ class AppState extends ChangeNotifier {
       for (final row in peerSceneRows) {
         final ownerId = row['user_id'] as String?;
         if (ownerId == null) continue;
-        final entry = _entryFromRow(row);
+        final entry = _entryFromRow(row, isOwnScene: false);
         (scenesByUser[ownerId] ??= <String, Entry>{})[dayKey(entry.date)] = entry;
-        if (sameDay(entry.date, today) && entry.dbId != null) {
-          todaySceneIds.add(entry.dbId!);
+        if (entry.dbId != null) {
+          allPeerSceneIds.add(entry.dbId!);
         }
       }
     }
 
     final cheerCounts = <int, int>{};
     final cheeredByMe = <int>{};
-    if (todaySceneIds.isNotEmpty) {
+    if (allPeerSceneIds.isNotEmpty) {
       final cheerRows = await _sb
           .from('scene_cheers')
           .select()
-          .inFilter('scene_id', todaySceneIds);
+          .inFilter('scene_id', allPeerSceneIds);
       for (final c in cheerRows) {
         final sid = (c['scene_id'] as num?)?.toInt();
         final cid = c['user_id'] as String?;
@@ -1139,13 +1234,27 @@ class AppState extends ChangeNotifier {
       }
     }
 
+    for (final userEntries in scenesByUser.values) {
+      for (final key in userEntries.keys.toList()) {
+        final entry = userEntries[key]!;
+        final sid = entry.dbId;
+        if (sid != null) {
+          userEntries[key] = entry.copyWith(
+            cheers: cheerCounts[sid] ?? 0,
+            cheeredByMe: cheeredByMe.contains(sid),
+          );
+        }
+      }
+    }
+
     final nextFriends = <Friend>[];
     for (final peerId in acceptedPeerIds) {
       final p = profileById[peerId];
       final peerEntries = scenesByUser[peerId] ?? <String, Entry>{};
-      final todaySid = peerEntries[dayKey(today)]?.dbId;
+      final todayEntry = peerEntries[dayKey(today)];
       final rawName = (p?['display_name'] as String?)?.trim();
       final rawHandle = (p?['handle'] as String?)?.trim();
+      final rawAvatar = (p?['avatar_url'] as String?)?.trim();
       final friendSharing = (p?['sharing_enabled'] as bool?) ?? true;
       final friendAudience = (p?['sharing_audience'] as String?) ?? 'all';
       final rawPeerSharedIds = p?['shared_friend_ids'];
@@ -1165,11 +1274,12 @@ class AppState extends ChangeNotifier {
               ? rawHandle
               : '@costar_$shortHex',
           avatar: hatchFromName(p?['avatar_hatch'] as String?, Hatch.diagonal),
+          avatarUrl: (rawAvatar != null && rawAvatar.isNotEmpty) ? rawAvatar : null,
           entries: peerEntries,
           sharingEnabled: peerAllowsMe,
           friendshipId: peerFriendshipId[peerId],
-          cheeredToday: todaySid != null && cheeredByMe.contains(todaySid),
-          cheers: todaySid != null ? (cheerCounts[todaySid] ?? 0) : 0,
+          cheeredToday: todayEntry?.cheeredByMe ?? false,
+          cheers: todayEntry?.cheers ?? 0,
         ),
       );
     }
@@ -1206,6 +1316,12 @@ class AppState extends ChangeNotifier {
         _sb.removeChannel(_friendshipsChannel!);
       } catch (_) {}
       _friendshipsChannel = null;
+    }
+    if (_cheersChannel != null) {
+      try {
+        _sb.removeChannel(_cheersChannel!);
+      } catch (_) {}
+      _cheersChannel = null;
     }
   }
 
@@ -1302,6 +1418,21 @@ class AppState extends ChangeNotifier {
           )
           .subscribe();
     } catch (_) {}
+
+    try {
+      _cheersChannel = _sb
+          .channel('public:scene_cheers:$uid')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'scene_cheers',
+            callback: (PostgresChangePayload payload) async {
+              await _loadFriendsFromDb(uid);
+              notifyListeners();
+            },
+          )
+          .subscribe();
+    } catch (_) {}
   }
 
   Future<void> _syncProfileFields(Map<String, dynamic> fields) async {
@@ -1316,7 +1447,10 @@ class AppState extends ChangeNotifier {
 
   // ── demo seeds (used in offline preview mode) ──
 
-  Map<String, Entry> _buildSceneMap(List<(int, int, Mood, String)> seeds) {
+  Map<String, Entry> _buildSceneMap(
+    List<(int, int, Mood, String)> seeds, {
+    int defaultCheers = 0,
+  }) {
     final map = <String, Entry>{};
     for (final (daysAgo, songIdx, mood, note) in seeds) {
       final d = DateTime(today.year, today.month, today.day - daysAgo);
@@ -1326,6 +1460,9 @@ class AppState extends ChangeNotifier {
         mood: mood,
         note: note,
         scene: sceneNo(d),
+        cheers: daysAgo == 0
+            ? defaultCheers
+            : (defaultCheers > 0 ? (daysAgo % (defaultCheers + 1)) : 0),
       );
     }
     return map;
@@ -1353,15 +1490,18 @@ class AppState extends ChangeNotifier {
         handle: '@jules',
         avatar: Hatch.diagonal,
         cheers: 3,
-        entries: _buildSceneMap(const <(int, int, Mood, String)>[
-          (0, 1, dreamy, 'missed my stop on the tram because the synth solo hit.'),
-          (1, 5, restless, 'late-night corner-store iced tea & neon on wet pavement.'),
-          (2, 2, hopeful, 'sketched strangers in the park until my pencil went blunt.'),
-          (3, 8, dreamy, 'clouds looked painted on all afternoon.'),
-          (5, 10, tired, 'fell asleep with my glasses still on.'),
-          (8, 3, hopeful, 'found an old ticket stub folded inside my jacket pocket.'),
-          (12, 11, restless, 'rewound the bridge four times in a row.'),
-        ]),
+        entries: _buildSceneMap(
+          const <(int, int, Mood, String)>[
+            (0, 1, dreamy, 'missed my stop on the tram because the synth solo hit.'),
+            (1, 5, restless, 'late-night corner-store iced tea & neon on wet pavement.'),
+            (2, 2, hopeful, 'sketched strangers in the park until my pencil went blunt.'),
+            (3, 8, dreamy, 'clouds looked painted on all afternoon.'),
+            (5, 10, tired, 'fell asleep with my glasses still on.'),
+            (8, 3, hopeful, 'found an old ticket stub folded inside my jacket pocket.'),
+            (12, 11, restless, 'rewound the bridge four times in a row.'),
+          ],
+          defaultCheers: 3,
+        ),
       ),
       Friend(
         id: 'theo',
@@ -1369,14 +1509,17 @@ class AppState extends ChangeNotifier {
         handle: '@theo',
         avatar: Hatch.dots,
         cheers: 2,
-        entries: _buildSceneMap(const <(int, int, Mood, String)>[
-          (0, 7, restless, 'biked home racing the storm clouds – won by two minutes.'),
-          (1, 9, hopeful, 'burnt the toast, nailed the espresso anyway.'),
-          (2, 0, restless, 'long train platform goodbye that felt weirdly cinematic.'),
-          (4, 6, tired, 'rain tapping the skylight while I did nothing at all.'),
-          (6, 4, dreamy, 'rooftop air felt like October in an indie film.'),
-          (10, 2, hopeful, 'golden hour bounced off every window down 4th street.'),
-        ]),
+        entries: _buildSceneMap(
+          const <(int, int, Mood, String)>[
+            (0, 7, restless, 'biked home racing the storm clouds – won by two minutes.'),
+            (1, 9, hopeful, 'burnt the toast, nailed the espresso anyway.'),
+            (2, 0, restless, 'long train platform goodbye that felt weirdly cinematic.'),
+            (4, 6, tired, 'rain tapping the skylight while I did nothing at all.'),
+            (6, 4, dreamy, 'rooftop air felt like October in an indie film.'),
+            (10, 2, hopeful, 'golden hour bounced off every window down 4th street.'),
+          ],
+          defaultCheers: 2,
+        ),
       ),
       Friend(
         id: 'mina',
@@ -1384,15 +1527,18 @@ class AppState extends ChangeNotifier {
         handle: '@mina',
         avatar: Hatch.lines,
         cheers: 4,
-        entries: _buildSceneMap(const <(int, int, Mood, String)>[
-          (0, 9, hopeful, 'shared wired headphones on the library steps between classes.'),
-          (1, 4, dreamy, 'hummed this in the grocery aisle without noticing.'),
-          (2, 11, hopeful, 'bought yellow flowers for my desk for no reason.'),
-          (3, 1, dreamy, 'ferry horn in the fog + warm paper cup.'),
-          (4, 8, tired, 'long exhale after turning in the final draft.'),
-          (7, 5, restless, 'danced around the kitchen waiting for pasta water to boil.'),
-          (11, 3, dreamy, 'postcards on the fridge catching afternoon light.'),
-        ]),
+        entries: _buildSceneMap(
+          const <(int, int, Mood, String)>[
+            (0, 9, hopeful, 'shared wired headphones on the library steps between classes.'),
+            (1, 4, dreamy, 'hummed this in the grocery aisle without noticing.'),
+            (2, 11, hopeful, 'bought yellow flowers for my desk for no reason.'),
+            (3, 1, dreamy, 'ferry horn in the fog + warm paper cup.'),
+            (4, 8, tired, 'long exhale after turning in the final draft.'),
+            (7, 5, restless, 'danced around the kitchen waiting for pasta water to boil.'),
+            (11, 3, dreamy, 'postcards on the fridge catching afternoon light.'),
+          ],
+          defaultCheers: 4,
+        ),
       ),
     ]);
 
@@ -1492,6 +1638,13 @@ class AppState extends ChangeNotifier {
     return Hatch.values[(moods.length + 1) % Hatch.values.length];
   }
 
+  Future<void> _persistMoods() async {
+    final uid = user?.id;
+    if (uid == null || !dbReady) return;
+    final payload = moods.map((m) => {'name': m.name, 'hatch': m.hatch.name}).toList();
+    await _syncProfileFields({'custom_moods': payload});
+  }
+
   Mood? ensureMood(String raw, [Hatch? customHatch]) {
     final clean = raw.trim().toLowerCase();
     if (clean.isEmpty) return null;
@@ -1506,6 +1659,7 @@ class AppState extends ChangeNotifier {
     final created = Mood(clean, hatch);
     moods.add(created);
     notifyListeners();
+    unawaited(_persistMoods());
     return created;
   }
 
@@ -1539,11 +1693,14 @@ class AppState extends ChangeNotifier {
           mood: updated,
           note: v.note,
           scene: v.scene,
+          cheers: v.cheers,
+          cheeredByMe: v.cheeredByMe,
         );
       }
     });
 
     notifyListeners();
+    unawaited(_persistMoods());
     return true;
   }
 
@@ -1558,12 +1715,13 @@ class AppState extends ChangeNotifier {
     }
 
     notifyListeners();
+    unawaited(_persistMoods());
     return true;
   }
 
-  void saveToday() {
+  Future<bool> saveToday() async {
     selected = today;
-    saveSceneForDate(
+    return await saveSceneForDate(
       today,
       song: draftSong,
       mood: draftMood,
@@ -1571,12 +1729,12 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  void saveSceneForDate(
+  Future<bool> saveSceneForDate(
     DateTime date, {
     required Song song,
     required Mood mood,
     required String note,
-  }) {
+  }) async {
     final normalizedDate = DateTime(date.year, date.month, date.day);
     var resolvedSong = song;
     if (resolvedSong.videoId == null &&
@@ -1609,6 +1767,8 @@ class AppState extends ChangeNotifier {
       mood: mood,
       note: cleanNote,
       scene: prev?.scene ?? sceneNo(normalizedDate),
+      cheers: prev?.cheers ?? 0,
+      cheeredByMe: prev?.cheeredByMe ?? false,
     );
     _entries[key] = entry;
 
@@ -1622,10 +1782,10 @@ class AppState extends ChangeNotifier {
 
     notifyListeners();
     unawaited(_persistLastSong(resolvedSong));
-    unawaited(_cacheAndSyncScene(key, entry, seq));
     if (sameDay(normalizedDate, today)) {
       unawaited(_rescheduleReminders());
     }
+    return await _cacheAndSyncScene(key, entry, seq);
   }
 
   Future<void> deleteSceneForDate(DateTime date) async {
@@ -1649,25 +1809,26 @@ class AppState extends ChangeNotifier {
           .delete()
           .eq('user_id', uid)
           .eq('scene_date', key);
-    } catch (_) {
-      // Keep responsive in-memory state if offline.
+    } catch (e) {
+      debugPrint('deleteSceneForDate error: $e');
     }
   }
 
-  Future<void> _cacheAndSyncScene(String key, Entry entry, int seq) async {
-    if (_sceneOpSeq[key] != seq) return;
+  Future<bool> _cacheAndSyncScene(String key, Entry entry, int seq) async {
+    if (_sceneOpSeq[key] != seq) return false;
     var currentEntry = entry;
     final uid = user?.id;
+    var syncSuccess = true;
     if (uid != null) {
-      await _persistScene(uid, key, currentEntry, seq);
-      if (_sceneOpSeq[key] != seq) return;
+      syncSuccess = await _persistScene(uid, key, currentEntry, seq);
+      if (_sceneOpSeq[key] != seq) return syncSuccess;
       currentEntry = _entries[key] ?? currentEntry;
     }
 
     // Invisibly resolve YouTube videoId (when chosen via iTunes) & download audio
     // locally so future Calendar visits load in 0ms offline.
     final preparedSong = await musicService.prepareAndCacheSong(currentEntry.song);
-    if (_sceneOpSeq[key] != seq) return;
+    if (_sceneOpSeq[key] != seq) return syncSuccess;
     if (preparedSong != currentEntry.song) {
       final latest = _entries[key];
       if (latest != null &&
@@ -1686,50 +1847,148 @@ class AppState extends ChangeNotifier {
         }
       }
     }
+    return syncSuccess;
   }
 
-  Future<void> _persistScene(String uid, String key, Entry entry, int seq) async {
-    if (_sceneOpSeq[key] != seq) return;
-    final basePayload = <String, dynamic>{
-      'user_id': uid,
-      'scene_date': key,
-      'scene_no': entry.scene,
-      'song_title': entry.song.title,
-      'song_artist': entry.song.artist,
-      'song_seconds': entry.song.seconds,
-      'song_art': entry.song.art.name,
-      'mood_name': entry.mood.name,
-      'mood_hatch': entry.mood.hatch.name,
-      'note': entry.note,
-    };
+  static const _legacyHatches = <String>{
+    'solid',
+    'diagonal',
+    'cross',
+    'lines',
+    'dots',
+  };
 
-    try {
-      Map<String, dynamic>? saved;
+  @visibleForTesting
+  static String legacySafeHatch(String raw) => _legacySafeHatch(raw);
+
+  static String _legacySafeHatch(String raw) {
+    if (_legacyHatches.contains(raw)) return raw;
+    return 'diagonal';
+  }
+
+  Future<bool> _persistScene(String uid, String key, Entry entry, int seq) async {
+    if (_sceneOpSeq[key] != seq) return false;
+
+    // Ensure user profile exists so foreign key constraint scenes_user_id_fkey is satisfied
+    if (!dbReady) {
+      await _ensureProfileExists(uid);
+    }
+
+    final safeSongArt = entry.song.art.name;
+    final safeMoodHatch = entry.mood.hatch.name;
+
+    Map<String, dynamic> buildPayload({
+      required bool includeMediaCols,
+      required bool forceLegacyHatches,
+    }) {
+      final art = forceLegacyHatches ? _legacySafeHatch(safeSongArt) : safeSongArt;
+      final hatch = forceLegacyHatches ? _legacySafeHatch(safeMoodHatch) : safeMoodHatch;
+      return <String, dynamic>{
+        'user_id': uid,
+        'scene_date': key,
+        'scene_no': entry.scene,
+        'song_title': entry.song.title,
+        'song_artist': entry.song.artist,
+        'song_seconds': math.max(0, entry.song.seconds),
+        'song_art': art,
+        'mood_name': entry.mood.name,
+        'mood_hatch': hatch,
+        'note': entry.note,
+        if (includeMediaCols && entry.song.videoId != null)
+          'song_video_id': entry.song.videoId,
+        if (includeMediaCols && entry.song.coverUrl != null)
+          'song_cover_url': entry.song.coverUrl,
+      };
+    }
+
+    Future<Map<String, dynamic>?> trySave(Map<String, dynamic> payload) async {
+      // 1. If entry has an existing dbId, attempt direct update by primary key first
+      if (entry.dbId != null) {
+        try {
+          final updated = await _sb
+              .from('scenes')
+              .update(payload)
+              .eq('id', entry.dbId!)
+              .eq('user_id', uid)
+              .select('id')
+              .maybeSingle();
+          if (updated != null) return updated;
+        } catch (e) {
+          debugPrint('Update by dbId ${entry.dbId} failed, falling back: $e');
+        }
+      }
+
+      // 2. Standard upsert on (user_id, scene_date)
       try {
-        saved = await _sb
+        return await _sb
             .from('scenes')
-            .upsert(
-              <String, dynamic>{
-                ...basePayload,
-                'song_video_id': entry.song.videoId,
-                'song_cover_url': entry.song.coverUrl,
-              },
-              onConflict: 'user_id,scene_date',
-            )
+            .upsert(payload, onConflict: 'user_id,scene_date')
             .select('id')
             .maybeSingle();
       } on PostgrestException catch (e) {
         final code = e.code ?? '';
-        final missingCol = code == 'PGRST204' ||
+        final isConflictMismatch = code == '42P10' ||
+            code == 'PGRST100' ||
+            code == '23505' ||
+            e.message.contains('ON CONFLICT');
+
+        if (isConflictMismatch) {
+          // Fallback: check if row exists, then update or insert
+          final existing = await _sb
+              .from('scenes')
+              .select('id')
+              .eq('user_id', uid)
+              .eq('scene_date', key)
+              .maybeSingle();
+          if (existing != null) {
+            final sid = (existing['id'] as num?)?.toInt();
+            if (sid != null) {
+              return await _sb
+                  .from('scenes')
+                  .update(payload)
+                  .eq('id', sid)
+                  .eq('user_id', uid)
+                  .select('id')
+                  .maybeSingle();
+            }
+          }
+          return await _sb
+              .from('scenes')
+              .insert(payload)
+              .select('id')
+              .maybeSingle();
+        }
+        rethrow;
+      }
+    }
+
+    try {
+      Map<String, dynamic>? saved;
+      try {
+        saved = await trySave(buildPayload(includeMediaCols: true, forceLegacyHatches: false));
+      } on PostgrestException catch (e) {
+        final code = e.code ?? '';
+        final isMissingCol = code == 'PGRST204' ||
             code == '42703' ||
             e.message.contains('song_video_id') ||
             e.message.contains('song_cover_url');
-        if (!missingCol) rethrow;
-        saved = await _sb
-            .from('scenes')
-            .upsert(basePayload, onConflict: 'user_id,scene_date')
-            .select('id')
-            .maybeSingle();
+        final isCheckViolation = code == '23514' || e.message.contains('check constraint');
+        final isFkeyViolation = code == '23503' || e.message.contains('foreign key');
+
+        if (isMissingCol) {
+          saved = await trySave(buildPayload(includeMediaCols: false, forceLegacyHatches: false));
+        } else if (isCheckViolation) {
+          // Retry with legacy safe hatch names in case remote DB has older check constraint
+          debugPrint('Check constraint encountered, retrying with legacy safe hatches: $e');
+          saved = await trySave(buildPayload(includeMediaCols: true, forceLegacyHatches: true));
+        } else if (isFkeyViolation) {
+          // Provision profile and retry
+          debugPrint('Foreign key missing for user profile, provisioning and retrying: $e');
+          await _ensureProfileExists(uid);
+          saved = await trySave(buildPayload(includeMediaCols: true, forceLegacyHatches: false));
+        } else {
+          rethrow;
+        }
       }
 
       if (_sceneOpSeq[key] != seq) {
@@ -1741,15 +2000,17 @@ class AppState extends ChangeNotifier {
               .eq('user_id', uid)
               .eq('scene_date', key);
         }
-        return;
+        return true;
       }
 
       final dbId = (saved?['id'] as num?)?.toInt();
       if (dbId != null && _entries[key] != null) {
         _entries[key] = _entries[key]!.copyWith(dbId: dbId);
       }
-    } catch (_) {
-      // Keep local scene intact if offline or table not yet created.
+      return true;
+    } catch (e) {
+      debugPrint('Failed to persist scene for $key to DB: $e');
+      return false;
     }
   }
 
@@ -1891,19 +2152,47 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleCheerFriend(String id) {
-    final f = friends.where((e) => e.id == id).firstOrNull;
-    if (f == null) return;
-    final nextCheered = !f.cheeredToday;
-    f.cheeredToday = nextCheered;
-    f.cheers = math.max(0, f.cheers + (nextCheered ? 1 : -1));
+  bool isSceneCheered(Friend friend, DateTime date) {
+    final entry = friend.entryFor(date);
+    return entry?.cheeredByMe ?? false;
+  }
+
+  int sceneCheerCount(Friend friend, DateTime date) {
+    final entry = friend.entryFor(date);
+    return entry?.cheers ?? 0;
+  }
+
+  void toggleCheerScene(Friend friend, DateTime date) {
+    final key = dayKey(date);
+    final entry = friend.entries[key];
+    if (entry == null) return;
+
+    final nextCheered = !entry.cheeredByMe;
+    final nextCheers = math.max(0, entry.cheers + (nextCheered ? 1 : -1));
+
+    friend.entries[key] = entry.copyWith(
+      cheers: nextCheers,
+      cheeredByMe: nextCheered,
+    );
+
+    if (sameDay(date, today)) {
+      friend.cheeredToday = nextCheered;
+      friend.cheers = nextCheers;
+    }
+
     notifyListeners();
 
     final uid = user?.id;
-    final sceneId = f.entryFor(today)?.dbId;
+    final sceneId = entry.dbId;
     if (uid != null && sceneId != null) {
       unawaited(_persistCheer(uid, sceneId, nextCheered));
     }
+  }
+
+  void toggleCheerFriend(String id) {
+    final f = friends.where((e) => e.id == id).firstOrNull;
+    if (f == null) return;
+    toggleCheerScene(f, today);
   }
 
   Future<void> _persistCheer(String uid, int sceneId, bool cheered) async {
@@ -1932,7 +2221,8 @@ class AppState extends ChangeNotifier {
       name: inv.name,
       handle: inv.handle,
       avatar: inv.avatar,
-      entries: inv.seedScenes.isEmpty ? <String, Entry>{} : _buildSceneMap(inv.seedScenes),
+      avatarUrl: inv.avatarUrl,
+      entries: inv.seedScenes.isEmpty ? <String, Entry>{} : _buildSceneMap(inv.seedScenes, defaultCheers: 1),
       friendshipId: inv.friendshipId,
       cheers: inv.seedScenes.isEmpty ? 0 : 1,
     );

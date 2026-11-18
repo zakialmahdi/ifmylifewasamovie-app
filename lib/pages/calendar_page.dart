@@ -155,7 +155,7 @@ class _CalendarPageState extends State<CalendarPage> {
       for (var c = 0; c < 7; c++, day++) {
         cells.add(Expanded(
           child: (day < 1 || day > days)
-              ? const SizedBox(height: 46)
+              ? const SizedBox(height: 52)
               : _cell(DateTime(m.year, m.month, day)),
         ));
       }
@@ -168,41 +168,41 @@ class _CalendarPageState extends State<CalendarPage> {
     final e = app.entryFor(d);
     final sel = sameDay(d, app.selected);
     return SizedBox(
-      height: 46,
+      height: 52,
       child: SketchTap(
         pressedScale: .82,
         onTap: () => app.select(d),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           SizedBox(
-            width: 34,
-            height: 32,
+            width: 40,
+            height: 38,
             child: Stack(alignment: Alignment.center, children: [
               if (e != null)
                 Transform.scale(
-                  scale: sel ? 1.08 : 1.0,
+                  scale: sel ? 1.06 : 1.0,
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 180),
                     child: _mode == _CalendarCircleMode.song
                         ? SongArtBox(
                             key: const ValueKey(_CalendarCircleMode.song),
                             song: e.song,
-                            size: 26,
+                            size: 34,
                             circle: true,
-                            gap: 3.2,
+                            gap: 3.4,
                           )
                         : HatchSwatch(
                             key: const ValueKey(_CalendarCircleMode.feeling),
                             e.mood.hatch,
-                            size: 26,
+                            size: 34,
                             circle: true,
-                            gap: 3.2,
+                            gap: 3.4,
                           ),
                   ),
                 )
               else
                 const SizedBox(
-                    width: 26,
-                    height: 26,
+                    width: 34,
+                    height: 34,
                     child: CustomPaint(painter: _FaintCircle())),
               if (sel)
                 IgnorePointer(
@@ -211,8 +211,8 @@ class _CalendarPageState extends State<CalendarPage> {
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutBack,
                     child: const SizedBox(
-                        width: 33,
-                        height: 33,
+                        width: 40,
+                        height: 40,
                         child: CustomPaint(painter: DashedCirclePainter())),
                     builder: (_, s, ring) => Transform.scale(scale: s, child: ring),
                   ),
@@ -220,7 +220,7 @@ class _CalendarPageState extends State<CalendarPage> {
             ]),
           ),
           Text('${d.day}',
-              style: T.body(10, c: e != null ? Ink.ink : Ink.faint)),
+              style: T.body(11, c: e != null ? Ink.ink : Ink.faint)),
         ]),
       ),
     );

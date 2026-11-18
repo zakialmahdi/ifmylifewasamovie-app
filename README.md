@@ -1,6 +1,6 @@
 # 🎬 If My Life Was a Movie
 
-**Latest Version: `v1.1.0`** · [Download APK](https://github.com/zakialmahdi/ifmylifewasamovie-app/releases) · [Changelog](CHANGELOG.md)
+**Latest Version: `v1.1.3`** · [Download APK](https://github.com/zakialmahdi/ifmylifewasamovie-app/releases) · [Changelog](CHANGELOG.md)
 
 *If My Life Was a Movie* is a song-based mood journal designed with an intimate, hand-drawn sketch aesthetic. Turn your days into scenes, your memories into cinema, and score every moment with the soundtrack of your life.
 
@@ -14,13 +14,13 @@
 
 ---
 
-## 🆕 What's New in v1.1.0
+## 🆕 What's New in v1.1.3
 
-* 🎨 **Calendar Feeling / Song Cover Toggle**: Switch day circles on the Calendar page between mood hatch swatches and circular song album covers.
-* 📖 **First-Session Storyboard Onboarding**: Streamlined 4-slide visual guide for newly registered users with a direct YouTube Music setup step (and clear notes on playback limits if skipped, plus replay in Settings).
-* 🔄 **Splash Screen App Update Check**: Automatically checks active releases in Supabase (`public.app_releases`) when the splash screen opens and prompts users when a new build is ready.
-* 🎬 **Demo Mode Update Popup Preview**: Added a **Preview update popup** button under **Settings → More** in Demo Mode so anyone exploring the demo reel can inspect the update alert on demand.
-* 📱 **Layout Polish**: Improved narrow-screen button wrapping in dialog cards and invite-ticket rows in Settings.
+* 🎨 **Pattern Swatch Selection on Scene Updates**: When adding new feelings from the calendar scene editor, choose from the full horizontal pattern swatch selector just like on the Home screen.
+* 👥 **Connected Friend Feel Viewing**: View connected friends' exact feeling badges on the Today's Moods card and shared scene details, plus toggle between `song` (album cover) and `feeling` (friend's hatch patterns and custom legend) on the shared calendar.
+* 🔒 **Isolated Feelings & Cloud Persistence**: Custom feelings are strictly isolated per user and persist to user profiles in Supabase without leaking across friends or devices.
+* 💾 **Reliable Scene Persistence**: Fixed Postgres trigger permission denials (`private.set_updated_at`) on scene updates/upserts, expanded constraint validations for all 11 pattern hatches, and reinforced offline-first caching.
+* 📱 **Larger Calendar Circles & Responsive Layout**: 34px calendar circle indicators for better touch targets and dynamic width adaptation across tablets and phones.
 
 ---
 
@@ -47,7 +47,7 @@
 ## 📥 Download & Install
 
 ### Android (`.apk`)
-1. Download **`ifmylifewasamovie-v1.1.0.apk`** from the **Assets** section on the [Releases Page](https://github.com/zakialmahdi/ifmylifewasamovie-app/releases).
+1. Download **`ifmylifewasamovie-v1.1.3.apk`** from the **Assets** section on the [Releases Page](https://github.com/zakialmahdi/ifmylifewasamovie-app/releases).
 2. Open the `.apk` file on your Android device.
 3. If prompted, allow installation from unknown sources for your browser or file manager.
 
@@ -70,6 +70,6 @@
 * Connecting your YouTube session during onboarding (or later under **Settings → Connect YouTube session**) improves full-track streaming reliability.
 * Found a bug or want to suggest a scene idea? Open an issue on [GitHub Issues](https://github.com/zakialmahdi/ifmylifewasamovie-app/issues) or use the in-app **Suggest a feature / feedback** option in Settings.
 
-For the full version history across `v1.0.0-beta` and `v1.1.0`, see [CHANGELOG.md](CHANGELOG.md).
+For the full version history across `v1.0.0-beta`, `v1.1.0`, and `v1.1.3`, see [CHANGELOG.md](CHANGELOG.md).
 
 Thank you for being part of the first audience — built by lone developer `zakialmahdi` 🍿

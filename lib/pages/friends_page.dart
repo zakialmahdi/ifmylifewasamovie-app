@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import '../sketch.dart';
 import '../state.dart';
 
+enum _SharedCircleMode { song, feeling }
+
 class FriendsPage extends StatefulWidget {
   const FriendsPage({super.key});
   @override
@@ -17,6 +19,7 @@ class _FriendsPageState extends State<FriendsPage> {
   final GlobalKey _calendarKey = GlobalKey();
   int _dir = 1;
   bool _refreshing = false;
+  _SharedCircleMode _sharedCircleMode = _SharedCircleMode.song;
 
   @override
   void initState() {
@@ -284,31 +287,34 @@ class _FriendsPageState extends State<FriendsPage> {
                   const SizedBox(height: 10),
                   const DashedLine(),
                   const SizedBox(height: 8),
-                  Row(children: [
-                    const Note('Audience: ', size: 13),
-                    const SizedBox(width: 4),
-                    SketchChip(
-                      label: 'All co-stars',
-                      selected: app.sharingAudience == 'all',
-                      seed: 31,
-                      onTap: () {
-                        app.setSharingAudience('all');
-                        showNote(context, 'sharing with all connected co-stars ✓');
-                      },
-                    ),
-                    const SizedBox(width: 6),
-                    SketchChip(
-                      label: app.sharingAudience == 'specific'
-                          ? 'Specific (${app.sharedFriendsCount})'
-                          : 'Specific friends',
-                      selected: app.sharingAudience == 'specific',
-                      seed: 32,
-                      onTap: () {
-                        app.setSharingAudience('specific');
-                        showNote(context, 'selective sharing active – pick co-stars below');
-                      },
-                    ),
-                  ]),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Note('Audience: ', size: 13),
+                      SketchChip(
+                        label: 'All co-stars',
+                        selected: app.sharingAudience == 'all',
+                        seed: 31,
+                        onTap: () {
+                          app.setSharingAudience('all');
+                          showNote(context, 'sharing with all connected co-stars ✓');
+                        },
+                      ),
+                      SketchChip(
+                        label: app.sharingAudience == 'specific'
+                            ? 'Specific (${app.sharedFriendsCount})'
+                            : 'Specific friends',
+                        selected: app.sharingAudience == 'specific',
+                        seed: 32,
+                        onTap: () {
+                          app.setSharingAudience('specific');
+                          showNote(context, 'selective sharing active – pick co-stars below');
+                        },
+                      ),
+                    ],
+                  ),
                   if (app.sharingAudience == 'specific') ...[
                     const SizedBox(height: 10),
                     if (app.friends.isEmpty)
@@ -441,10 +447,15 @@ class _FriendsPageState extends State<FriendsPage> {
                   child: SketchBox(
                     seed: inv.name.length + 41,
                     dashed: true,
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     child: Row(children: [
-                      HatchSwatch(inv.avatar, size: 38),
-                      const SizedBox(width: 10),
+                      _FriendAvatarBox(
+                        name: inv.name,
+                        avatarHatch: inv.avatar,
+                        avatarUrl: inv.avatarUrl,
+                        size: 38,
+                      ),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(inv.name.toUpperCase(), style: T.head(17)),
@@ -473,10 +484,15 @@ class _FriendsPageState extends State<FriendsPage> {
 
             // ── connected friends' daily moods
             const SizedBox(height: 18),
-            r(Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const SectionTitle('Today\'s moods'),
-              Note('${app.friends.length} connected', size: 14),
-            ])),
+            r(Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: 4,
+              children: [
+                const SectionTitle('Today\'s moods'),
+                Note('${app.friends.length} connected', size: 14),
+              ],
+            )),
             if (app.friends.isEmpty)
               r(SketchBox(
                 seed: 49,
@@ -513,12 +529,17 @@ class _FriendsPageState extends State<FriendsPage> {
               r(Container(
                 key: _calendarKey,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
                       const SectionTitle('Shared calendars'),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           if (app.sharingEnabled) ...[
                             SketchTap(
@@ -591,6 +612,27 @@ class _FriendsPageState extends State<FriendsPage> {
                       onTap: app.toggleCompareCalendar,
                     ),
                   ]),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Note('view:', size: 14),
+                      SketchChip(
+                        label: 'song',
+                        selected: _sharedCircleMode == _SharedCircleMode.song,
+                        seed: 32,
+                        onTap: () => setState(() => _sharedCircleMode = _SharedCircleMode.song),
+                      ),
+                      SketchChip(
+                        label: 'feeling',
+                        selected: _sharedCircleMode == _SharedCircleMode.feeling,
+                        seed: 31,
+                        onTap: () => setState(() => _sharedCircleMode = _SharedCircleMode.feeling),
+                      ),
+                    ],
+                  ),
                 ]),
               )),
               const SizedBox(height: 12),
@@ -599,21 +641,42 @@ class _FriendsPageState extends State<FriendsPage> {
                 month: app.friendViewMonth,
                 selectedDate: app.friendSelectedDate,
                 compareWithMine: app.compareCalendar && app.isSharedWith(active.id),
+                circleMode: _sharedCircleMode,
                 dir: _dir,
                 onShiftMonth: _shiftMonth,
               )),
-              const SizedBox(height: 12),
-              r(Wrap(
-                spacing: 12,
-                runSpacing: 6,
-                children: [
-                  for (final mood in app.moods)
-                    Row(mainAxisSize: MainAxisSize.min, children: [
-                      HatchSwatch(mood.hatch, size: 18, circle: true, gap: 3),
-                      const SizedBox(width: 5),
-                      Text(mood.name, style: T.body(13)),
-                    ]),
-                ],
+              const SizedBox(height: 10),
+              r(AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: _sharedCircleMode == _SharedCircleMode.song
+                    ? Align(
+                        key: const ValueKey(_SharedCircleMode.song),
+                        alignment: Alignment.centerLeft,
+                        child: Note(
+                          app.compareCalendar && app.isSharedWith(active.id)
+                              ? 'each circle shows that day’s song album cover · tiny pips show yours'
+                              : 'each circle shows that day’s song album cover',
+                          size: 13,
+                        ),
+                      )
+                    : Align(
+                        key: const ValueKey(_SharedCircleMode.feeling),
+                        alignment: Alignment.centerLeft,
+                        child: active.moods.isEmpty
+                            ? Note('no scenes recorded by ${active.name} this month', size: 13)
+                            : Wrap(
+                                spacing: 12,
+                                runSpacing: 6,
+                                children: [
+                                  for (final mood in active.moods)
+                                    Row(mainAxisSize: MainAxisSize.min, children: [
+                                      HatchSwatch(mood.hatch, size: 18, circle: true, gap: 3),
+                                      const SizedBox(width: 5),
+                                      Text(mood.name, style: T.body(13)),
+                                    ]),
+                                ],
+                              ),
+                      ),
               )),
               const SizedBox(height: 14),
               r(_SharedSceneDetail(
@@ -668,24 +731,11 @@ class _FriendMoodCard extends StatelessWidget {
         padding: const EdgeInsets.all(11),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            SketchBox(
-              shadow: false,
-              padding: EdgeInsets.zero,
-              jitter: 1.2,
-              child: SizedBox(
-                width: 40,
-                height: 40,
-                child: Stack(alignment: Alignment.center, children: [
-                  HatchSwatch(friend.avatar, size: 40, gap: 4),
-                  Container(
-                    width: 24,
-                    height: 24,
-                    color: Ink.paper,
-                    alignment: Alignment.center,
-                    child: Text(friend.name[0].toUpperCase(), style: T.head(16)),
-                  ),
-                ]),
-              ),
+            _FriendAvatarBox(
+              name: friend.name,
+              avatarHatch: friend.avatar,
+              avatarUrl: friend.avatarUrl,
+              size: 40,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -740,101 +790,91 @@ class _FriendMoodCard extends StatelessWidget {
             Text('“${todayScene.note}”', style: T.note(16, c: Ink.ink)),
           ],
           const SizedBox(height: 8),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            SketchTap(
-              onTap: () => app.toggleCheerFriend(friend.id),
-              pressedScale: .9,
-              child: SketchBox(
-                shadow: false,
-                fill: friend.cheeredToday ? Ink.grey : Ink.paper,
-                jitter: 1.3,
-                strokeWidth: 1.3,
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(
-                    friend.cheeredToday ? Icons.favorite : Icons.favorite_border,
-                    size: 14,
-                    color: Ink.ink,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    friend.cheeredToday ? 'cheered · ${friend.cheers}' : 'cheer · ${friend.cheers}',
-                    style: T.body(12),
-                  ),
-                ]),
-              ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
               children: [
-                if (app.sharingEnabled) ...[
-                  SketchTap(
-                    onTap: () {
-                      final willShare = !app.isSharedWith(friend.id);
-                      app.toggleFriendSharing(friend.id);
-                      showNote(
-                        context,
-                        willShare
-                            ? 'now sharing your reel with ${friend.name} ✓'
-                            : 'your reel is now hidden from ${friend.name}',
-                      );
-                    },
-                    pressedScale: .85,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            app.isSharedWith(friend.id)
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            size: 14,
-                            color: app.isSharedWith(friend.id) ? Ink.ink : Ink.soft,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            app.isSharedWith(friend.id) ? 'shared' : 'hidden',
-                            style: T.note(12, c: app.isSharedWith(friend.id) ? Ink.ink : Ink.soft)
-                                .copyWith(decoration: TextDecoration.underline),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                SketchTap(
-                  onTap: onRemove,
-                  pressedScale: .85,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.person_remove_outlined, size: 14, color: Ink.soft),
-                        const SizedBox(width: 3),
-                        Text(
-                          'remove',
-                          style: T.note(12, c: Ink.soft).copyWith(
-                            decoration: TextDecoration.underline,
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    if (app.sharingEnabled) ...[
+                      SketchTap(
+                        onTap: () {
+                          final willShare = !app.isSharedWith(friend.id);
+                          app.toggleFriendSharing(friend.id);
+                          showNote(
+                            context,
+                            willShare
+                                ? 'now sharing your reel with ${friend.name} ✓'
+                                : 'your reel is now hidden from ${friend.name}',
+                          );
+                        },
+                        pressedScale: .85,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                app.isSharedWith(friend.id)
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                size: 14,
+                                color: app.isSharedWith(friend.id) ? Ink.ink : Ink.soft,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                app.isSharedWith(friend.id) ? 'shared' : 'hidden',
+                                style: T.note(12, c: app.isSharedWith(friend.id) ? Ink.ink : Ink.soft)
+                                    .copyWith(decoration: TextDecoration.underline),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    SketchTap(
+                      onTap: onRemove,
+                      pressedScale: .85,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.person_remove_outlined, size: 14, color: Ink.soft),
+                            const SizedBox(width: 3),
+                            Text(
+                              'remove',
+                              style: T.note(12, c: Ink.soft).copyWith(
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 10),
                 GestureDetector(
                   onTap: onOpenCalendar,
-                  child: Text(
-                    'calendar →',
-                    style: T.note(14, c: Ink.ink).copyWith(decoration: TextDecoration.underline),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                    child: Text(
+                      'calendar →',
+                      style: T.note(14, c: Ink.ink).copyWith(decoration: TextDecoration.underline),
+                    ),
                   ),
                 ),
               ],
             ),
-          ]),
+          ),
         ]),
       ),
     );
@@ -846,6 +886,7 @@ class _SharedCalendarCard extends StatelessWidget {
   final DateTime month;
   final DateTime selectedDate;
   final bool compareWithMine;
+  final _SharedCircleMode circleMode;
   final int dir;
   final ValueChanged<int> onShiftMonth;
 
@@ -854,6 +895,7 @@ class _SharedCalendarCard extends StatelessWidget {
     required this.month,
     required this.selectedDate,
     required this.compareWithMine,
+    this.circleMode = _SharedCircleMode.song,
     required this.dir,
     required this.onShiftMonth,
   });
@@ -866,6 +908,14 @@ class _SharedCalendarCard extends StatelessWidget {
       child: Column(children: [
         Row(children: [
           _MiniArrowBtn(Icons.chevron_left, () => onShiftMonth(-1)),
+          const SizedBox(width: 8),
+          _FriendAvatarBox(
+            name: friend.name,
+            avatarHatch: friend.avatar,
+            avatarUrl: friend.avatarUrl,
+            size: 32,
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
@@ -924,7 +974,7 @@ class _SharedCalendarCard extends StatelessWidget {
       for (var c = 0; c < 7; c++, day++) {
         cells.add(Expanded(
           child: (day < 1 || day > days)
-              ? const SizedBox(height: 46)
+              ? const SizedBox(height: 52)
               : _cell(DateTime(month.year, month.month, day)),
         ));
       }
@@ -939,34 +989,57 @@ class _SharedCalendarCard extends StatelessWidget {
     final sel = sameDay(d, selectedDate);
 
     return SizedBox(
-      height: 46,
+      height: 52,
       child: SketchTap(
         pressedScale: .82,
         onTap: () => app.selectFriendDate(d),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           SizedBox(
-            width: 34,
-            height: 32,
+            width: 40,
+            height: 38,
             child: Stack(alignment: Alignment.center, children: [
               if (theirEntry != null)
                 Transform.scale(
-                  scale: sel ? 1.08 : 1.0,
-                  child: HatchSwatch(theirEntry.mood.hatch, size: 26, circle: true, gap: 3.2),
+                  scale: sel ? 1.06 : 1.0,
+                  child: circleMode == _SharedCircleMode.song
+                      ? SongArtBox(
+                          song: theirEntry.song,
+                          size: 34,
+                          circle: true,
+                          gap: 3.4,
+                        )
+                      : HatchSwatch(
+                          theirEntry.mood.hatch,
+                          size: 34,
+                          circle: true,
+                          gap: 3.4,
+                        ),
                 )
               else
                 const SizedBox(
-                  width: 26,
-                  height: 26,
+                  width: 34,
+                  height: 34,
                   child: CustomPaint(painter: _SharedFaintCircle()),
                 ),
               if (myEntry != null)
                 Positioned(
-                  right: 1,
+                  right: 0,
                   bottom: 0,
                   child: Container(
                     decoration: const BoxDecoration(color: Ink.paper, shape: BoxShape.circle),
-                    padding: const EdgeInsets.all(1),
-                    child: HatchSwatch(myEntry.mood.hatch, size: 11, circle: true, gap: 2.4),
+                    padding: const EdgeInsets.all(1.2),
+                    child: circleMode == _SharedCircleMode.song
+                        ? SongArtBox(
+                            song: myEntry.song,
+                            size: 14,
+                            circle: true,
+                          )
+                        : HatchSwatch(
+                            myEntry.mood.hatch,
+                            size: 14,
+                            circle: true,
+                            gap: 1.5,
+                          ),
                   ),
                 ),
               if (sel)
@@ -976,8 +1049,8 @@ class _SharedCalendarCard extends StatelessWidget {
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutBack,
                     child: const SizedBox(
-                      width: 33,
-                      height: 33,
+                      width: 40,
+                      height: 40,
                       child: CustomPaint(painter: DashedCirclePainter()),
                     ),
                     builder: (_, s, ring) => Transform.scale(scale: s, child: ring),
@@ -987,7 +1060,7 @@ class _SharedCalendarCard extends StatelessWidget {
           ),
           Text(
             '${d.day}',
-            style: T.body(10, c: (theirEntry != null || myEntry != null) ? Ink.ink : Ink.faint),
+            style: T.body(11, c: (theirEntry != null || myEntry != null) ? Ink.ink : Ink.faint),
           ),
         ]),
       ),
@@ -1057,10 +1130,29 @@ class _SharedSceneDetail extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Text(
-                        '${e.song.artist} · ${e.mood.name}',
-                        style: T.body(13),
-                        overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 2),
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        children: [
+                          Text(
+                            e.song.artist,
+                            style: T.body(13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SketchBox(
+                            shadow: false,
+                            fill: Ink.bg,
+                            jitter: 1.1,
+                            strokeWidth: 1.1,
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              HatchSwatch(e.mood.hatch, size: 14, circle: true, gap: 2.4),
+                              const SizedBox(width: 4),
+                              Text(e.mood.name, style: T.body(12)),
+                            ]),
+                          ),
+                        ],
                       ),
                     ]),
                   ),
@@ -1072,14 +1164,52 @@ class _SharedSceneDetail extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text('“${e.note}”', style: T.note(18, c: Ink.ink)),
                 const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: SketchTextButton(
-                    'borrow song ♪',
-                    onTap: () {
-                      app.setSong(e.song);
-                      showNote(context, 'loaded "${e.song.title}" into your draft ♪');
-                    },
+                SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      SketchTap(
+                        onTap: () => app.toggleCheerScene(friend, date),
+                        pressedScale: .9,
+                        child: SketchBox(
+                          shadow: false,
+                          fill: app.isSceneCheered(friend, date) ? Ink.grey : Ink.paper,
+                          jitter: 1.3,
+                          strokeWidth: 1.3,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                app.isSceneCheered(friend, date)
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                size: 14,
+                                color: Ink.ink,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                app.isSceneCheered(friend, date)
+                                    ? 'cheered · ${app.sceneCheerCount(friend, date)}'
+                                    : 'cheer · ${app.sceneCheerCount(friend, date)}',
+                                style: T.body(12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SketchTextButton(
+                        'borrow song ♪',
+                        onTap: () {
+                          app.setSong(e.song);
+                          showNote(context, 'loaded "${e.song.title}" into your draft ♪');
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1088,7 +1218,7 @@ class _SharedSceneDetail extends StatelessWidget {
                 const DashedLine(),
                 const SizedBox(height: 8),
                 Row(children: [
-                  HatchSwatch(mine.mood.hatch, size: 20, circle: true, gap: 3),
+                  SongArtBox(song: mine.song, size: 20, circle: true),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1143,4 +1273,62 @@ class _MiniArrowBtn extends StatelessWidget {
           child: SizedBox(width: 24, height: 24, child: Icon(icon, size: 18, color: Ink.ink)),
         ),
       );
+}
+
+class _FriendAvatarBox extends StatelessWidget {
+  final String name;
+  final Hatch avatarHatch;
+  final String? avatarUrl;
+  final double size;
+
+  const _FriendAvatarBox({
+    required this.name,
+    required this.avatarHatch,
+    this.avatarUrl,
+    this.size = 40,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Widget fallback() {
+      final innerBox = (size * 0.6).roundToDouble();
+      final trimmed = name.trim();
+      final initial = trimmed.isNotEmpty ? trimmed[0].toUpperCase() : '?';
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          HatchSwatch(avatarHatch, size: size, gap: 4),
+          Container(
+            width: innerBox,
+            height: innerBox,
+            color: Ink.paper,
+            alignment: Alignment.center,
+            child: Text(initial, style: T.head((size * 0.4).roundToDouble())),
+          ),
+        ],
+      );
+    }
+
+    final url = avatarUrl?.trim();
+    final Widget inner = (url != null && url.isNotEmpty)
+        ? Image.network(
+            url,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => fallback(),
+          )
+        : fallback();
+
+    return SketchBox(
+      shadow: false,
+      padding: EdgeInsets.zero,
+      jitter: 1.2,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: inner,
+      ),
+    );
+  }
 }

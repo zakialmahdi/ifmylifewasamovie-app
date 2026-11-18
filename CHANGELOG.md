@@ -5,6 +5,21 @@ All notable changes to **If My Life Was a Movie** will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2026-11-18
+
+### Added
+- **Pattern Swatch Selection on Scene Editor**: Adding or updating journal scenes from the Calendar page now features the full horizontal calendar pattern swatch selector, matching the Home page experience.
+- **Friend Feel Viewing on Friends Page**: View connected friends' exact feeling badges on the Today's Moods card and shared scene details, plus a `song | feeling` toggle on the shared calendar with friend feeling legends.
+- **Custom Feelings Persistence**: Custom feelings and pattern swatches are saved to and restored from user profiles in Supabase (`profiles.custom_moods`).
+
+### Fixed
+- **Database Scene Persistence**: Resolved Postgres trigger permission denials (`private.set_updated_at`) on scene updates and upserts.
+- **Hatch Check Constraints**: Expanded database constraints on `scenes` and `profiles` to support all 11 pattern hatch styles with legacy compatibility fallbacks.
+- **Foreign Key Integrity**: Automatically provisions/verifies user profile rows before scene inserts to prevent foreign key errors.
+- **Per-User Feeling Isolation**: Prevented friends' custom feelings from polluting the logged-in user's personal Home page chips, Scene Editor, and Calendar legend.
+- **Narrow-Screen Action Wrapping**: Responsive `Wrap` layout for scene editor bottom actions to prevent overflow when deleting or updating on smaller screens.
+- **Dynamic Calendar Day Circles**: Enlarged calendar circle indicators to 34px across both personal and shared calendars for enhanced touch targets and legibility.
+
 ## [1.1.0] - 2026-11-11
 
 ### Added

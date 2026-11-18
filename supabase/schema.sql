@@ -15,7 +15,7 @@ create table if not exists public.profiles (
   handle text not null unique check (handle = lower(handle)),
   invite_code text not null unique check (invite_code = upper(invite_code)),
   avatar_hatch text not null default 'cross'
-    check (avatar_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots')),
+    check (avatar_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker')),
   avatar_url text,
   paper text not null default 'lined'
     check (paper in ('plain', 'lined', 'grid')),
@@ -28,6 +28,7 @@ create table if not exists public.profiles (
   sharing_audience text not null default 'all'
     check (sharing_audience in ('all', 'specific')),
   shared_friend_ids text[] not null default array[]::text[],
+  custom_moods jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -47,6 +48,8 @@ alter table public.profiles
   add column if not exists daily_reminder boolean not null default true;
 alter table public.profiles
   add column if not exists mood_prompts boolean not null default true;
+alter table public.profiles
+  add column if not exists custom_moods jsonb not null default '[]'::jsonb;
 
 -- 3. Daily Soundtrack Scenes
 create table if not exists public.scenes (
@@ -58,12 +61,12 @@ create table if not exists public.scenes (
   song_artist text not null,
   song_seconds integer not null check (song_seconds >= 0),
   song_art text not null default 'diagonal'
-    check (song_art in ('solid', 'diagonal', 'cross', 'lines', 'dots')),
+    check (song_art in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker')),
   song_video_id text,
   song_cover_url text,
   mood_name text not null,
   mood_hatch text not null default 'diagonal'
-    check (mood_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots')),
+    check (mood_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker')),
   note text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -75,6 +78,23 @@ alter table public.scenes
   add column if not exists song_video_id text;
 alter table public.scenes
   add column if not exists song_cover_url text;
+
+-- Ensure all application hatch styles are permitted when upgrading an existing schema
+alter table public.scenes drop constraint if exists scenes_song_art_check;
+alter table public.scenes drop constraint if exists scenes_mood_hatch_check;
+alter table public.profiles drop constraint if exists profiles_avatar_hatch_check;
+
+alter table public.scenes
+  add constraint scenes_song_art_check
+  check (song_art in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker'));
+
+alter table public.scenes
+  add constraint scenes_mood_hatch_check
+  check (mood_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker'));
+
+alter table public.profiles
+  add constraint profiles_avatar_hatch_check
+  check (avatar_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker'));
 
 create index if not exists scenes_user_id_scene_date_idx
   on public.scenes (user_id, scene_date desc);
@@ -132,7 +152,7 @@ create index if not exists scene_cheers_user_id_idx
 create or replace function private.set_updated_at()
 returns trigger
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 begin
@@ -141,7 +161,8 @@ begin
 end;
 $$;
 
-revoke all on function private.set_updated_at() from public, anon, authenticated;
+grant usage on schema private to authenticated, anon;
+grant execute on function private.set_updated_at() to authenticated, anon;
 
 drop trigger if exists set_profiles_updated_at on public.profiles;
 create trigger set_profiles_updated_at
@@ -162,7 +183,7 @@ create trigger set_friendships_updated_at
 create or replace function private.enforce_friendship_immutability()
 returns trigger
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 begin
@@ -173,7 +194,7 @@ begin
 end;
 $$;
 
-revoke all on function private.enforce_friendship_immutability() from public, anon, authenticated;
+grant execute on function private.enforce_friendship_immutability() to authenticated, anon;
 
 drop trigger if exists check_friendship_immutability on public.friendships;
 create trigger check_friendship_immutability
@@ -265,6 +286,8 @@ grant select, insert, update, delete on
   public.friendships,
   public.scene_cheers
 to authenticated;
+
+grant usage, select on all sequences in schema public to authenticated;
 
 -- Principle of Least Privilege: restrict friendship updates to 'status' only
 revoke update on public.friendships from authenticated;
@@ -870,15 +893,15 @@ insert into public.app_releases (
 )
 select
   'all',
-  '1.1.0',
-  2,
-  'Added calendar feeling/song album cover toggle, streamlined onboarding, and automatic update checks. Coming soon: Calendar Widget & Zine Export.',
+  '1.1.3',
+  3,
+  'Fixed scene saving and trigger permissions, added per-user feeling isolation, pattern swatch selection on calendar updates, and connected friend feel viewing.',
   'https://github.com/zakialmahdi/ifmylifewasamovie-app/releases/latest',
   false,
   true
 where not exists (
   select 1
   from public.app_releases
-  where latest_version = '1.1.0'
-    and latest_build_number = 2
+  where latest_version = '1.1.3'
+    and latest_build_number = 3
 );

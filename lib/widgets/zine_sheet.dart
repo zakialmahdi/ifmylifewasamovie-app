@@ -1320,23 +1320,23 @@ class _ZineCoverPanel extends StatelessWidget {
           Text(
             'IF MY LIFE\nWAS A MOVIE...',
             textAlign: TextAlign.center,
-            style: T.head(21),
+            style: T.head(19),
           ),
           const SizedBox(height: 2),
-          const Note('a daily soundtrack diary', size: 12),
+          const Note('a daily soundtrack diary', size: 11),
           const Spacer(),
 
-          // Central Large Vinyl LP illustration with laurel festival laurels
+          // Central Vinyl LP illustration
           Stack(
             alignment: Alignment.center,
             children: [
               Container(
-                width: 112,
-                height: 112,
+                width: 76,
+                height: 76,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: const Color(0xFF161616),
-                  border: Border.all(color: Ink.ink, width: 2.2),
+                  border: Border.all(color: Ink.ink, width: 2),
                   boxShadow: const [
                     BoxShadow(
                       color: Color(0x33000000),
@@ -1350,18 +1350,18 @@ class _ZineCoverPanel extends StatelessWidget {
                 ),
               ),
               Container(
-                width: 44,
-                height: 44,
+                width: 30,
+                height: 30,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Ink.paper, width: 1.4),
+                  border: Border.all(color: Ink.paper, width: 1.2),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: const HatchSwatch(Hatch.diagonal, size: 44, circle: true, gap: 2.4),
+                child: const HatchSwatch(Hatch.diagonal, size: 30, circle: true, gap: 2.2),
               ),
               Container(
-                width: 10,
-                height: 10,
+                width: 8,
+                height: 8,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   color: Ink.paper,
@@ -1369,15 +1369,15 @@ class _ZineCoverPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 5),
-          Text('★ OFFICIAL SOUNDTRACK SELECTION ★', style: T.head(9.5, c: Ink.soft)),
+          const SizedBox(height: 4),
+          Text('★ OFFICIAL SOUNDTRACK SELECTION ★', style: T.head(9, c: Ink.soft)),
 
           const Spacer(),
           const DashedLine(),
           const SizedBox(height: 4),
-          Text('DIR: ${directorName.toUpperCase()}', style: T.head(11.5)),
-          Text('$handle · TICKET: $inviteCode', style: T.body(10.5, c: Ink.soft)),
-          Text('VOL. 1 · $sceneCount SCENES PRESERVED', style: T.note(9.5, c: Ink.soft)),
+          Text('DIR: ${directorName.toUpperCase()}', style: T.head(11)),
+          Text('$handle · TICKET: $inviteCode', style: T.body(10, c: Ink.soft)),
+          Text('VOL. 1 · $sceneCount SCENES PRESERVED', style: T.note(9, c: Ink.soft)),
         ],
       ),
     );

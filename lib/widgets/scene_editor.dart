@@ -131,47 +131,91 @@ class _SceneEditorSheetState extends State<SceneEditorSheet> {
 
   Future<void> _addCustomMood() async {
     final ctl = TextEditingController();
+    var chosenHatch = app.nextUnusedHatch();
+
     await showSketchDialog<void>(
       context,
-      (c) => SketchDialogCard(
-        title: 'add a mood',
-        body: SketchBox(
-          shadow: false,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-          child: TextField(
-            controller: ctl,
-            autofocus: true,
-            maxLength: 18,
-            style: T.body(16),
-            onSubmitted: (v) {
-              final created = app.ensureMood(v);
-              if (created != null && mounted) {
-                setState(() => _mood = created);
-              }
-              Navigator.pop(c);
-            },
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              counterText: '',
-              hintText: 'e.g. nostalgic',
-              hintStyle: T.body(16, c: Ink.faint),
+      (c) => StatefulBuilder(
+        builder: (ctx, setDlgState) => SketchDialogCard(
+          title: 'add a feeling',
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SketchBox(
+                shadow: false,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                child: TextField(
+                  controller: ctl,
+                  autofocus: true,
+                  maxLength: 18,
+                  style: T.body(16),
+                  onSubmitted: (v) {
+                    final clean = v.trim();
+                    if (clean.isNotEmpty) {
+                      final created = app.ensureMood(clean, chosenHatch);
+                      if (created != null && mounted) {
+                        setState(() => _mood = created);
+                      }
+                    }
+                    Navigator.pop(c);
+                  },
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    counterText: '',
+                    hintText: 'e.g. nostalgic',
+                    hintStyle: T.body(16, c: Ink.faint),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Note('calendar pattern swatch', size: 14),
+              const SizedBox(height: 6),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final h in Hatch.values)
+                      if (h != Hatch.solid) ...[
+                        GestureDetector(
+                          onTap: () => setDlgState(() => chosenHatch = h),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: chosenHatch == h ? Ink.ink : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: HatchSwatch(h, size: 28, circle: true, gap: 3),
+                          ),
+                        ),
+                      ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            SketchTextButton('cancel', onTap: () => Navigator.pop(c)),
+            SketchTextButton(
+              'add',
+              primary: true,
+              onTap: () {
+                final clean = ctl.text.trim();
+                if (clean.isNotEmpty) {
+                  final created = app.ensureMood(clean, chosenHatch);
+                  if (created != null && mounted) {
+                    setState(() => _mood = created);
+                  }
+                }
+                Navigator.pop(c);
+              },
             ),
-          ),
+          ],
         ),
-        actions: [
-          SketchTextButton('cancel', onTap: () => Navigator.pop(c)),
-          SketchTextButton(
-            'add',
-            primary: true,
-            onTap: () {
-              final created = app.ensureMood(ctl.text);
-              if (created != null && mounted) {
-                setState(() => _mood = created);
-              }
-              Navigator.pop(c);
-            },
-          ),
-        ],
       ),
     );
   }
@@ -500,7 +544,11 @@ class _SceneEditorSheetState extends State<SceneEditorSheet> {
               const SizedBox(height: 14),
 
               // ── Bottom actions
-              Row(
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   if (_isEditing)
                     SketchTap(
@@ -528,16 +576,20 @@ class _SceneEditorSheetState extends State<SceneEditorSheet> {
                         ),
                       ),
                     ),
-                  const Spacer(),
-                  SketchTextButton(
-                    'cancel',
-                    onTap: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: 8),
-                  SketchTextButton(
-                    _isEditing ? 'update' : 'save',
-                    primary: true,
-                    onTap: _handleSave,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SketchTextButton(
+                        'cancel',
+                        onTap: () => Navigator.pop(context),
+                      ),
+                      const SizedBox(width: 8),
+                      SketchTextButton(
+                        _isEditing ? 'update' : 'save',
+                        primary: true,
+                        onTap: _handleSave,
+                      ),
+                    ],
                   ),
                 ],
               ),

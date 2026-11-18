@@ -86,17 +86,23 @@ void main() {
   });
 
   testWidgets('ZineSheet renders Printable Foldable Sheet with fold guides', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ZineSheet(
-              format: ZineFormat.foldableLandscape,
-              scenes: testScenes,
-              directorName: 'maya',
-              handle: '@maya_film',
-              inviteCode: 'MAYA-99',
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ZineSheet(
+                format: ZineFormat.foldableLandscape,
+                scenes: testScenes,
+                directorName: 'maya',
+                handle: '@maya_film',
+                inviteCode: 'MAYA-99',
+              ),
             ),
           ),
         ),
