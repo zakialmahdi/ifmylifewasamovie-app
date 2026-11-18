@@ -5,7 +5,7 @@ All notable changes to **If My Life Was a Movie** will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.3] - 2026-11-18
+## [1.1.4] - 2026-11-18
 
 ### Added
 - **Journal Cheers Perspective & Co-Star Identification**: Scenes in the user's personal journal now display received cheers and who cheered, with a tap-to-view dialog listing all friends who cheered, calendar day heart indicators, and home page cheer counters.

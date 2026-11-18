@@ -1,6 +1,6 @@
 # 🎬 If My Life Was a Movie
 
-**Latest Version: `v1.1.3`** · [Download APK](https://github.com/zakialmahdi/ifmylifewasamovie-app/releases) · [Changelog](CHANGELOG.md)
+**Latest Version: `v1.1.4`** · [Download APK](https://github.com/zakialmahdi/ifmylifewasamovie-app/releases) · [Changelog](CHANGELOG.md)
 
 *If My Life Was a Movie* is a song-based mood journal designed with an intimate, hand-drawn sketch aesthetic. Turn your days into scenes, your memories into cinema, and score every moment with the soundtrack of your life.
 
@@ -14,7 +14,7 @@
 
 ---
 
-## 🆕 What's New in v1.1.3
+## 🆕 What's New in v1.1.4
 
 * 🍿 **Journal Scene Cheers & In-App Notifications**: Cheers are now fully displayed from your own journal perspective. See cheer counts, who cheered your daily scenes with a tap-to-view popup, subtle calendar heart indicators, and receive real-time in-app alerts and notifications when a friend cheers on your movie reel.
 * 🎨 **Pattern Swatch Selection on Scene Updates**: When adding new feelings from the calendar scene editor, choose from the full horizontal pattern swatch selector just like on the Home screen.
@@ -48,7 +48,7 @@
 ## 📥 Download & Install
 
 ### Android (`.apk`)
-1. Download **`ifmylifewasamovie-v1.1.3.apk`** from the **Assets** section on the [Releases Page](https://github.com/zakialmahdi/ifmylifewasamovie-app/releases).
+1. Download **`ifmylifewasamovie-v1.1.4.apk`** from the **Assets** section on the [Releases Page](https://github.com/zakialmahdi/ifmylifewasamovie-app/releases).
 2. Open the `.apk` file on your Android device.
 3. If prompted, allow installation from unknown sources for your browser or file manager.
 

@@ -153,8 +153,8 @@ typedef ReleaseRowsFetcher = Future<List<Map<String, dynamic>>> Function(String 
 
 /// Checks Supabase `public.app_releases` on launch / splash screen to detect updates.
 class AppVersionService {
-  static const String kFallbackVersion = '1.1.3';
-  static const int kFallbackBuildNumber = 3;
+  static const String kFallbackVersion = '1.1.4';
+  static const int kFallbackBuildNumber = 4;
   static const String kDefaultDownloadUrl =
       'https://github.com/zakialmahdi/ifmylifewasamovie-app/releases/latest';
 
