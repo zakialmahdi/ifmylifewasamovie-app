@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../state.dart';
+import 'web_audio/web_audio_player.dart';
 
 /// Isolate-safe parser for the iTunes Search API JSON payload.
 /// Produces clean track titles, clean artist names, exact durations,
@@ -205,6 +206,12 @@ class YouTubeMusicService extends ChangeNotifier {
   Future<void>? _cacheInitFuture;
   Future<void>? _cookieInitFuture;
 
+  final WebAudioPlayer _webPlayer = WebAudioPlayer.instance;
+  final StreamController<Duration> _positionController =
+      StreamController<Duration>.broadcast();
+  final StreamController<Duration?> _durationController =
+      StreamController<Duration?>.broadcast();
+
   StreamSubscription<PlayerState>? _playerStateSub;
   StreamSubscription<ProcessingState>? _processingStateSub;
   int _activeRequestToken = 0;
@@ -233,6 +240,46 @@ class YouTubeMusicService extends ChangeNotifier {
       notifyListeners();
     });
 
+    _player.positionStream.listen((pos) {
+      if (!kIsWeb || isPreviewPlayback) {
+        _positionController.add(pos);
+      }
+    });
+
+    _player.durationStream.listen((dur) {
+      if (!kIsWeb || isPreviewPlayback) {
+        _durationController.add(dur);
+      }
+    });
+
+    if (kIsWeb) {
+      _webPlayer.positionStream.listen((pos) {
+        if (!isPreviewPlayback) {
+          _positionController.add(pos);
+        }
+      });
+      _webPlayer.durationStream.listen((dur) {
+        if (!isPreviewPlayback) {
+          _durationController.add(dur);
+        }
+      });
+      _webPlayer.isPlayingStream.listen((_) => notifyListeners());
+      _webPlayer.isBufferingStream.listen((_) => notifyListeners());
+      _webPlayer.videoIdStream.listen((vid) {
+        if (vid != null && currentSong != null && currentSong!.videoId != vid) {
+          currentSong = currentSong!.copyWith(videoId: vid);
+          notifyListeners();
+        }
+      });
+      _webPlayer.errorStream.listen((err) {
+        if (err != null) {
+          playbackError = err;
+          isLoadingStream = false;
+          notifyListeners();
+        }
+      });
+    }
+
     if (!kIsWeb) {
       _cacheInitFuture = _initLocalCacheIndex();
       _cookieInitFuture = _loadYouTubeCookies();
@@ -240,17 +287,30 @@ class YouTubeMusicService extends ChangeNotifier {
   }
 
   AudioPlayer get player => _player;
-  bool get isPlaying => _player.playing;
+  bool get isPlaying => kIsWeb
+      ? (isPreviewPlayback ? _player.playing : _webPlayer.isPlaying)
+      : _player.playing;
   ProcessingState get processingState => _player.processingState;
 
-  /// True while resolving an audio source OR while `just_audio` is buffering/loading.
-  bool get isBuffering =>
-      isLoadingStream ||
-      _player.processingState == ProcessingState.loading ||
-      _player.processingState == ProcessingState.buffering;
+  Duration get currentPosition =>
+      (kIsWeb && !isPreviewPlayback) ? _webPlayer.position : _player.position;
 
-  Stream<Duration> get positionStream => _player.positionStream;
-  Stream<Duration?> get durationStream => _player.durationStream;
+  Duration? get currentDuration =>
+      (kIsWeb && !isPreviewPlayback) ? _webPlayer.duration : _player.duration;
+
+  /// True while resolving an audio source OR while audio player is buffering/loading.
+  bool get isBuffering => kIsWeb
+      ? (isLoadingStream ||
+          (isPreviewPlayback
+              ? (_player.processingState == ProcessingState.loading ||
+                  _player.processingState == ProcessingState.buffering)
+              : _webPlayer.isBuffering))
+      : (isLoadingStream ||
+          _player.processingState == ProcessingState.loading ||
+          _player.processingState == ProcessingState.buffering);
+
+  Stream<Duration> get positionStream => _positionController.stream;
+  Stream<Duration?> get durationStream => _durationController.stream;
   Stream<PlayerState> get playerStateStream => _player.playerStateStream;
   Stream<ProcessingState> get processingStateStream =>
       _player.processingStateStream;
@@ -710,6 +770,9 @@ class YouTubeMusicService extends ChangeNotifier {
 
     try {
       await _ensureCacheInitialized();
+      if (kIsWeb) {
+        await _webPlayer.stop();
+      }
       await _player.stop();
       if (token != _activeRequestToken) return;
 
@@ -1175,6 +1238,11 @@ class YouTubeMusicService extends ChangeNotifier {
   Future<void> playSong(String videoId) async {
     final token = ++_activeRequestToken;
     isPreviewPlayback = false;
+    if (kIsWeb) {
+      await _player.stop();
+      await _webPlayer.play(videoId: videoId);
+      return;
+    }
     await _loadSourceWithFallback(videoId, token);
     if (token != _activeRequestToken) return;
     unawaited(_player.play());
@@ -1188,6 +1256,15 @@ class YouTubeMusicService extends ChangeNotifier {
         !isPreviewPlayback &&
         !isLoadingStream &&
         playbackError == null) {
+      if (kIsWeb) {
+        if (_webPlayer.isPlaying) {
+          await _webPlayer.pause();
+        } else {
+          await _webPlayer.resume();
+        }
+        notifyListeners();
+        return;
+      }
       if (_player.playing) {
         await _player.pause();
       } else {
@@ -1210,8 +1287,30 @@ class YouTubeMusicService extends ChangeNotifier {
     notifyListeners();
     onPlaybackSongChanged?.call(song);
 
+    if (kIsWeb) {
+      try {
+        await _player.stop();
+        final vid = song.videoId?.trim();
+        final query = '${song.artist} - ${song.title} official audio';
+        await _webPlayer.play(
+          videoId: (vid != null && vid.isNotEmpty) ? vid : null,
+          query: query,
+        );
+        isLoadingStream = false;
+        notifyListeners();
+      } catch (e) {
+        isLoadingStream = false;
+        playbackError = 'web playback error – please retry.';
+        notifyListeners();
+      }
+      return;
+    }
+
     try {
       await _ensureCacheInitialized();
+      if (kIsWeb) {
+        await _webPlayer.stop();
+      }
       await _player.stop();
       if (token != _activeRequestToken) return;
 
@@ -1446,11 +1545,16 @@ class YouTubeMusicService extends ChangeNotifier {
   }
 
   Future<void> seekToFraction(double fraction) async {
-    final total = _player.duration ??
+    final total = currentDuration ??
         (currentSong != null ? Duration(seconds: currentSong!.seconds) : null);
     if (total == null || total.inMilliseconds <= 0) return;
     final targetMs = (total.inMilliseconds * fraction.clamp(0.0, 1.0)).round();
-    await _player.seek(Duration(milliseconds: targetMs));
+    final target = Duration(milliseconds: targetMs);
+    if (kIsWeb && !isPreviewPlayback) {
+      await _webPlayer.seekTo(target);
+    } else {
+      await _player.seek(target);
+    }
   }
 
   Future<void> stop() async {
@@ -1461,6 +1565,9 @@ class YouTubeMusicService extends ChangeNotifier {
     currentSong = null;
     try {
       await _ensureCacheInitialized();
+      if (kIsWeb) {
+        await _webPlayer.stop();
+      }
       await _player.stop();
     } catch (_) {}
     notifyListeners();
@@ -1468,11 +1575,16 @@ class YouTubeMusicService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _positionController.close();
+    _durationController.close();
     _playerStateSub?.cancel();
     _processingStateSub?.cancel();
     _http.close();
     _yt.close();
     _player.dispose();
+    if (kIsWeb) {
+      _webPlayer.dispose();
+    }
     super.dispose();
   }
 }

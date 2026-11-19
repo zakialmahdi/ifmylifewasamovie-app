@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Ink;
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -1445,25 +1446,39 @@ class _SettingsPageState extends State<SettingsPage> {
 
             const SizedBox(height: 10),
             r(const SectionTitle('Soundtrack playback & stream')),
-            r(ListenableBuilder(
-              listenable: musicService,
-              builder: (context, _) {
-                final isConnected = musicService.isYouTubeConnected;
-                return _navRow(
-                  isConnected
-                      ? Icons.check_circle_outline
-                      : Icons.smart_display_outlined,
-                  isConnected
-                      ? 'YouTube session connected ✓'
-                      : 'Connect YouTube session',
-                  isConnected
-                      ? 'authenticated cookies active · bot-detection bypassed'
-                      : 'sign in to bypass rate limits & 403 playback blocks',
-                  83,
-                  () => _handleYouTubeAuth(context),
-                );
-              },
-            )),
+            if (kIsWeb)
+              r(_navRow(
+                Icons.check_circle_outline,
+                'YouTube Web Player active ✓',
+                'plays soundtrack audio seamlessly on web · no sign-in required',
+                83,
+                () {
+                  showNote(
+                    context,
+                    'soundtracks stream seamlessly via the official invisible web player',
+                  );
+                },
+              ))
+            else
+              r(ListenableBuilder(
+                listenable: musicService,
+                builder: (context, _) {
+                  final isConnected = musicService.isYouTubeConnected;
+                  return _navRow(
+                    isConnected
+                        ? Icons.check_circle_outline
+                        : Icons.smart_display_outlined,
+                    isConnected
+                        ? 'YouTube session connected ✓'
+                        : 'Connect YouTube session',
+                    isConnected
+                        ? 'authenticated cookies active · bot-detection bypassed'
+                        : 'sign in to bypass rate limits & 403 playback blocks',
+                    83,
+                    () => _handleYouTubeAuth(context),
+                  );
+                },
+              )),
 
             const SizedBox(height: 14),
             r(const SectionTitle('More')),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Ink;
 import 'package:go_router/go_router.dart';
 
@@ -379,43 +380,49 @@ class _IntroPageState extends State<IntroPage> {
                     constraints: const BoxConstraints(maxWidth: 330),
                     child: SketchBox(
                       seed: 44,
-                      fill: isConnected ? const Color(0xFFEAF5EC) : Ink.paper,
+                      fill: (kIsWeb || isConnected)
+                          ? const Color(0xFFEAF5EC)
+                          : Ink.paper,
                       padding: const EdgeInsets.all(22),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            isConnected
+                            (kIsWeb || isConnected)
                                 ? Icons.check_circle_outline
                                 : Icons.headphones_outlined,
                             size: 36,
-                            color: isConnected
+                            color: (kIsWeb || isConnected)
                                 ? const Color(0xFF2E7D32)
                                 : Ink.ink,
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            isConnected
-                                ? 'YOUTUBE CONNECTED ✓'
-                                : 'SEAMLESS MUSIC',
+                            kIsWeb
+                                ? 'WEB PLAYER READY ✓'
+                                : (isConnected
+                                    ? 'YOUTUBE CONNECTED ✓'
+                                    : 'SEAMLESS MUSIC'),
                             textAlign: TextAlign.center,
                             style: T.head(
                               24,
-                              c: isConnected
+                              c: (kIsWeb || isConnected)
                                   ? const Color(0xFF2E7D32)
                                   : Ink.ink,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            isConnected
-                                ? 'bot checks bypassed — ready for smooth playback.'
-                                : 'connect your YouTube account so songs play smoothly without bot checks.',
+                            kIsWeb
+                                ? 'official YouTube audio stream active — songs play directly in your browser.'
+                                : (isConnected
+                                    ? 'bot checks bypassed — ready for smooth playback.'
+                                    : 'connect your YouTube account so songs play smoothly without bot checks.'),
                             textAlign: TextAlign.center,
                             style: T.body(15, c: Ink.soft),
                           ),
                           const SizedBox(height: 20),
-                          if (!isConnected)
+                          if (!kIsWeb && !isConnected)
                             SketchButton(
                               primary: true,
                               onTap: _connectYouTube,
@@ -443,7 +450,7 @@ class _IntroPageState extends State<IntroPage> {
                       ),
                     ),
                   ),
-                  if (!isConnected) ...[
+                  if (!kIsWeb && !isConnected) ...[
                     const SizedBox(height: 22),
                     SketchTap(
                       onTap: _finishAndEnter,

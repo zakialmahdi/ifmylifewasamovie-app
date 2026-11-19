@@ -731,11 +731,11 @@ class _NowPlayingState extends State<NowPlaying> with SingleTickerProviderStateM
     }
 
     if (active) {
-      final dur = musicService.player.duration;
+      final dur = musicService.currentDuration;
       final total = (dur != null && dur.inSeconds > 0)
           ? dur.inSeconds
           : widget.song.seconds;
-      final pos = musicService.player.position;
+      final pos = musicService.currentPosition;
       _totalSec.value = total;
       _elapsedSec.value = pos.inSeconds.clamp(0, total);
       final totalMs = (dur != null && dur.inMilliseconds > 0)
@@ -754,7 +754,7 @@ class _NowPlayingState extends State<NowPlaying> with SingleTickerProviderStateM
 
   void _onPosition(Duration pos) {
     if (!_isFullSongActive) return;
-    final dur = musicService.player.duration;
+    final dur = musicService.currentDuration;
     final totalSec = (dur != null && dur.inSeconds > 0)
         ? dur.inSeconds
         : widget.song.seconds;
