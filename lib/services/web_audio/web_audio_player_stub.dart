@@ -44,7 +44,7 @@ class _WebAudioPlayerStub implements WebAudioPlayer {
   final Stream<String?> errorStream = const Stream<String?>.empty();
 
   @override
-  Future<void> play({String? videoId, String? query}) async {}
+  Future<void> play({required String videoId}) async {}
 
   @override
   Future<void> pause() async {}

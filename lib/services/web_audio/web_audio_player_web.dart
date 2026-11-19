@@ -9,7 +9,7 @@ external YtAudioBridgeJs? get _ytBridge;
 
 @JS()
 extension type YtAudioBridgeJs(JSObject _) implements JSObject {
-  external void play(JSString? videoId, JSString? query);
+  external void play(JSString videoId);
   external void pause();
   external void resume();
   external void stop();
@@ -169,29 +169,21 @@ class _WebAudioPlayerWeb implements WebAudioPlayer {
   Stream<String?> get errorStream => _errorController.stream;
 
   @override
-  Future<void> play({String? videoId, String? query}) async {
+  Future<void> play({required String videoId}) async {
     _ensureBridge();
     _playbackError = null;
     _isBuffering = true;
     _isBufferingController.add(true);
-    if (videoId != null && videoId.isNotEmpty) {
-      _currentVideoId = videoId;
-    }
+    _currentVideoId = videoId;
 
     final bridge = _ytBridge;
     if (bridge != null) {
-      bridge.play(
-        videoId?.toJS,
-        query?.toJS,
-      );
+      bridge.play(videoId.toJS);
     } else {
       // Retry in 150ms if bridge was still initializing
       Future<void>.delayed(const Duration(milliseconds: 150), () {
         _ensureBridge();
-        _ytBridge?.play(
-          videoId?.toJS,
-          query?.toJS,
-        );
+        _ytBridge?.play(videoId.toJS);
       });
     }
   }

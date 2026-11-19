@@ -11,7 +11,7 @@
   var currentVideoId = '';
   var isBufferingState = false;
   var isPlayingState = false;
-  var fallbackQuery = '';
+  var watchdogTimer = null;
 
   function ensureContainer() {
     var container = document.getElementById('yt-audio-container');
@@ -19,11 +19,14 @@
       container = document.createElement('div');
       container.id = 'yt-audio-container';
       container.style.cssText =
-        'position:fixed;bottom:-9999px;left:-9999px;width:1px;height:1px;opacity:0.001;pointer-events:none;overflow:hidden;z-index:-99999;';
+        'position:fixed;bottom:0;right:0;width:200px;height:200px;opacity:0.001;pointer-events:none;z-index:-99999;overflow:hidden;';
       var playerDiv = document.createElement('div');
       playerDiv.id = 'yt-audio-player';
       container.appendChild(playerDiv);
-      document.body.appendChild(container);
+      var target = document.body || document.documentElement;
+      if (target) {
+        target.appendChild(container);
+      }
     }
   }
 
@@ -85,17 +88,16 @@
 
     try {
       player = new window.YT.Player('yt-audio-player', {
-        height: '1',
-        width: '1',
+        height: '200',
+        width: '200',
         playerVars: {
-          autoplay: 0,
+          autoplay: 1,
           controls: 0,
           disablekb: 1,
           fs: 0,
           playsinline: 1,
           rel: 0,
-          modestbranding: 1,
-          origin: window.location.origin
+          modestbranding: 1
         },
         events: {
           onReady: function () {
@@ -110,7 +112,11 @@
           onStateChange: function (event) {
             // YT.PlayerState: UNSTARTED (-1), ENDED (0), PLAYING (1), PAUSED (2), BUFFERING (3), CUED (5)
             var state = event.data;
-            if (state === 1) {
+            if (state === 1) { // PLAYING
+              if (watchdogTimer) {
+                clearTimeout(watchdogTimer);
+                watchdogTimer = null;
+              }
               isPlayingState = true;
               isBufferingState = false;
               startProgressTracking();
@@ -126,7 +132,7 @@
                 isPlaying: true,
                 isBuffering: false
               });
-            } else if (state === 2) {
+            } else if (state === 2) { // PAUSED
               isPlayingState = false;
               isBufferingState = false;
               stopProgressTracking();
@@ -135,14 +141,14 @@
                 isPlaying: false,
                 isBuffering: false
               });
-            } else if (state === 3) {
+            } else if (state === 3) { // BUFFERING
               isBufferingState = true;
               emitEvent('stateChange', {
                 state: 'buffering',
                 isPlaying: isPlayingState,
                 isBuffering: true
               });
-            } else if (state === 0) {
+            } else if (state === 0) { // ENDED
               isPlayingState = false;
               isBufferingState = false;
               stopProgressTracking();
@@ -156,17 +162,13 @@
             }
           },
           onError: function (event) {
-            var code = event.data;
-            // 101 or 150 = owner prohibits embed playback for this video id. Fallback to search query once.
-            if ((code === 101 || code === 150) && fallbackQuery) {
-              var q = fallbackQuery;
-              fallbackQuery = '';
-              try {
-                player.loadPlaylist({ listType: 'search', list: q });
-                return;
-              } catch (e) {}
+            if (watchdogTimer) {
+              clearTimeout(watchdogTimer);
+              watchdogTimer = null;
             }
-            emitEvent('error', { code: code });
+            isBufferingState = false;
+            isPlayingState = false;
+            emitEvent('error', { code: event.data });
           }
         }
       });
@@ -184,22 +186,27 @@
   window.ytAudioBridge = {
     onEvent: null,
 
-    play: function (videoId, query) {
-      fallbackQuery = query || '';
+    play: function (videoId) {
       var execute = function () {
         if (!player) return;
         try {
           if (videoId && videoId.trim().length > 0) {
             currentVideoId = videoId.trim();
             player.loadVideoById({ videoId: currentVideoId });
-          } else if (query && query.trim().length > 0) {
-            player.loadPlaylist({ listType: 'search', list: query.trim() });
+            player.playVideo();
           }
-          player.playVideo();
         } catch (e) {
           console.warn('[ytAudioBridge] Play error:', e);
         }
       };
+
+      if (watchdogTimer) clearTimeout(watchdogTimer);
+      watchdogTimer = setTimeout(function () {
+        if (!isPlayingState) {
+          isBufferingState = false;
+          emitEvent('error', { code: 'timeout', message: 'Playback timed out' });
+        }
+      }, 6000);
 
       if (!isReady || !player) {
         pendingAction = execute;
@@ -210,6 +217,10 @@
     },
 
     pause: function () {
+      if (watchdogTimer) {
+        clearTimeout(watchdogTimer);
+        watchdogTimer = null;
+      }
       if (player && typeof player.pauseVideo === 'function') {
         try { player.pauseVideo(); } catch (e) {}
       }
@@ -222,6 +233,10 @@
     },
 
     stop: function () {
+      if (watchdogTimer) {
+        clearTimeout(watchdogTimer);
+        watchdogTimer = null;
+      }
       stopProgressTracking();
       isPlayingState = false;
       isBufferingState = false;

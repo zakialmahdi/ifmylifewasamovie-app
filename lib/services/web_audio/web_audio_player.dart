@@ -20,7 +20,7 @@ abstract class WebAudioPlayer {
   Stream<String?> get videoIdStream;
   Stream<String?> get errorStream;
 
-  Future<void> play({String? videoId, String? query});
+  Future<void> play({required String videoId});
   Future<void> pause();
   Future<void> resume();
   Future<void> stop();

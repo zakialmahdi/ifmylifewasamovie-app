@@ -1248,6 +1248,63 @@ class YouTubeMusicService extends ChangeNotifier {
     unawaited(_player.play());
   }
 
+  /// Resolves YouTube videoId on web using serverless /api/yt-search endpoint,
+  /// with public Invidious fallback.
+  Future<String?> _resolveWebVideoId(Song song) async {
+    final existing = song.videoId?.trim();
+    if (existing != null && existing.isNotEmpty) {
+      _rememberLookup(song, existing);
+      return existing;
+    }
+
+    final cacheKey = _songLookupKey(song);
+    final memHit = _lookupVideoIdCache[cacheKey];
+    if (memHit != null && memHit.isNotEmpty) {
+      return memHit;
+    }
+
+    final query = '${song.artist} - ${song.title} official audio';
+
+    // 1. Try Vercel Serverless Function (/api/yt-search)
+    try {
+      final apiUri = Uri.parse('/api/yt-search?q=${Uri.encodeQueryComponent(query)}');
+      final res = await _http.get(apiUri).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        if (decoded is Map<String, dynamic>) {
+          final vid = decoded['videoId'] as String?;
+          if (vid != null && vid.isNotEmpty) {
+            _rememberLookup(song, vid);
+            return vid;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Try public CORS Invidious instance
+    try {
+      final invUri = Uri.parse(
+        'https://yt.chocolatemoo53.com/api/v1/search?q=${Uri.encodeQueryComponent('${song.artist} ${song.title}')}&type=video',
+      );
+      final res = await _http.get(invUri).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        if (decoded is List && decoded.isNotEmpty) {
+          final first = decoded.first;
+          if (first is Map<String, dynamic>) {
+            final vid = first['videoId'] as String?;
+            if (vid != null && vid.isNotEmpty) {
+              _rememberLookup(song, vid);
+              return vid;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
   /// Plays or pauses the full-length [song] with Optimistic Audio UI, 0ms local
   /// file cache lookup (`AudioSource.file`), and multi-codec / multi-client 403
   /// fallback. Album cover always comes from 1:1 iTunes artwork, never YouTube.
@@ -1290,15 +1347,52 @@ class YouTubeMusicService extends ChangeNotifier {
     if (kIsWeb) {
       try {
         await _player.stop();
-        final vid = song.videoId?.trim();
-        final query = '${song.artist} - ${song.title} official audio';
-        await _webPlayer.play(
-          videoId: (vid != null && vid.isNotEmpty) ? vid : null,
-          query: query,
-        );
-        isLoadingStream = false;
-        notifyListeners();
+        var vid = song.videoId?.trim();
+
+        if (vid == null || vid.isEmpty) {
+          vid = await _resolveWebVideoId(song);
+        }
+
+        if (token != _activeRequestToken) return;
+
+        if (vid != null && vid.isNotEmpty) {
+          currentSong = song.copyWith(
+            videoId: vid,
+            coverUrl: albumCoverFor(song),
+            previewUrl: previewUrlFor(song),
+          );
+          notifyListeners();
+          onPlaybackSongChanged?.call(currentSong!);
+
+          await _webPlayer.play(videoId: vid);
+          isLoadingStream = false;
+          notifyListeners();
+        } else {
+          // If videoId could not be found, fall back to the 30-second AAC iTunes preview
+          final preview = previewUrlFor(song) ?? song.previewUrl;
+          if (preview != null && preview.isNotEmpty) {
+            isPreviewPlayback = true;
+            isLoadingStream = false;
+            currentSong = song.copyWith(
+              coverUrl: albumCoverFor(song),
+              previewUrl: preview,
+            );
+            notifyListeners();
+            onPlaybackSongChanged?.call(currentSong!);
+
+            await _player.setAudioSource(
+              AudioSource.uri(Uri.parse(preview), headers: _browserHeaders),
+            );
+            if (token != _activeRequestToken) return;
+            unawaited(_player.play());
+          } else {
+            isLoadingStream = false;
+            playbackError = 'track stream unavailable – please retry.';
+            notifyListeners();
+          }
+        }
       } catch (e) {
+        if (token != _activeRequestToken) return;
         isLoadingStream = false;
         playbackError = 'web playback error – please retry.';
         notifyListeners();
