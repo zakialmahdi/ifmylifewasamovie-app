@@ -124,10 +124,12 @@ class Mood {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is Mood && other.name == name);
+      identical(this, other) ||
+      (other is Mood &&
+          other.name.trim().toLowerCase() == name.trim().toLowerCase());
 
   @override
-  int get hashCode => name.hashCode;
+  int get hashCode => name.trim().toLowerCase().hashCode;
 }
 
 class Entry {
@@ -473,6 +475,7 @@ class AppState extends ChangeNotifier {
 
     await _loadLocalPrivacySettings();
     await _loadLastSong();
+    await _loadLocalMoods();
     await _loadReminderSettings();
     await _loadSharingSettings();
     await _loadNotifiedInvites();
@@ -964,7 +967,6 @@ class AppState extends ChangeNotifier {
         mood = existingMood;
       } else {
         mood = Mood(moodName, moodHatch);
-        moods.add(mood);
       }
     } else {
       // Connected friends' scenes preserve that friend's own feeling and hatch pattern.
@@ -1068,11 +1070,12 @@ class AppState extends ChangeNotifier {
         final rawCustomMoods = profile['custom_moods'];
         if (rawCustomMoods is List && rawCustomMoods.isNotEmpty) {
           moods.clear();
+          final seenNames = <String>{};
           for (final item in rawCustomMoods) {
             if (item is Map) {
               final mName = (item['name'] as String?)?.trim().toLowerCase();
               final mHatch = hatchFromName(item['hatch'] as String?, Hatch.diagonal);
-              if (mName != null && mName.isNotEmpty) {
+              if (mName != null && mName.isNotEmpty && seenNames.add(mName)) {
                 moods.add(Mood(mName, mHatch));
               }
             }
@@ -1080,6 +1083,7 @@ class AppState extends ChangeNotifier {
           if (moods.isEmpty) {
             moods.addAll(const <Mood>[hopeful, restless, dreamy, tired]);
           }
+          unawaited(_persistLocalMoods());
         }
       }
 
@@ -1802,7 +1806,52 @@ class AppState extends ChangeNotifier {
     return Hatch.values[(moods.length + 1) % Hatch.values.length];
   }
 
+  Future<void> _persistLocalMoods() async {
+    if (kIsWeb) return;
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      final file = File('${docs.path}/custom_moods.json');
+      final payload = moods.map((m) => {'name': m.name, 'hatch': m.hatch.name}).toList();
+      await file.writeAsString(jsonEncode(payload), flush: true);
+    } catch (_) {}
+  }
+
+  Future<void> _loadLocalMoods() async {
+    if (kIsWeb) return;
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      final file = File('${docs.path}/custom_moods.json');
+      if (await file.exists()) {
+        final raw = await file.readAsString();
+        final decoded = jsonDecode(raw);
+        if (decoded is List && decoded.isNotEmpty) {
+          final loadedMoods = <Mood>[];
+          final seen = <String>{};
+          for (final item in decoded) {
+            if (item is Map) {
+              final mName = (item['name'] as String?)?.trim().toLowerCase();
+              final mHatch = hatchFromName(item['hatch'] as String?, Hatch.diagonal);
+              if (mName != null && mName.isNotEmpty && seen.add(mName)) {
+                loadedMoods.add(Mood(mName, mHatch));
+              }
+            }
+          }
+          if (loadedMoods.isNotEmpty) {
+            moods
+              ..clear()
+              ..addAll(loadedMoods);
+            if (!moods.any((m) => m.name.toLowerCase() == draftMood.name.toLowerCase())) {
+              draftMood = moods.first;
+            }
+            notifyListeners();
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> _persistMoods() async {
+    unawaited(_persistLocalMoods());
     final uid = user?.id;
     if (uid == null || !dbReady) return;
     final payload = moods.map((m) => {'name': m.name, 'hatch': m.hatch.name}).toList();
@@ -1865,6 +1914,26 @@ class AppState extends ChangeNotifier {
 
     notifyListeners();
     unawaited(_persistMoods());
+
+    final uid = user?.id;
+    if (uid != null && dbReady) {
+      unawaited(() async {
+        try {
+          final escaped = oldMood.name.replaceAll('%', r'\%').replaceAll('_', r'\_');
+          await _sb
+              .from('scenes')
+              .update(<String, dynamic>{
+                'mood_name': clean,
+                'mood_hatch': targetHatch.name,
+              })
+              .eq('user_id', uid)
+              .ilike('mood_name', escaped);
+        } catch (e) {
+          debugPrint('updateMood scenes DB update error: $e');
+        }
+      }());
+    }
+
     return true;
   }
 
@@ -1874,12 +1943,49 @@ class AppState extends ChangeNotifier {
     if (idx == -1) return false;
     moods.removeAt(idx);
 
+    final fallbackMood = moods.first;
+
     if (draftMood == mood || draftMood.name.toLowerCase() == mood.name.toLowerCase()) {
-      draftMood = moods.first;
+      draftMood = fallbackMood;
     }
+
+    _entries.forEach((k, v) {
+      if (v.mood == mood || v.mood.name.toLowerCase() == mood.name.toLowerCase()) {
+        _entries[k] = Entry(
+          dbId: v.dbId,
+          date: v.date,
+          song: v.song,
+          mood: fallbackMood,
+          note: v.note,
+          scene: v.scene,
+          cheers: v.cheers,
+          cheeredByMe: v.cheeredByMe,
+        );
+      }
+    });
 
     notifyListeners();
     unawaited(_persistMoods());
+
+    final uid = user?.id;
+    if (uid != null && dbReady) {
+      unawaited(() async {
+        try {
+          final escaped = mood.name.replaceAll('%', r'\%').replaceAll('_', r'\_');
+          await _sb
+              .from('scenes')
+              .update(<String, dynamic>{
+                'mood_name': fallbackMood.name,
+                'mood_hatch': fallbackMood.hatch.name,
+              })
+              .eq('user_id', uid)
+              .ilike('mood_name', escaped);
+        } catch (e) {
+          debugPrint('deleteMood scenes DB update error: $e');
+        }
+      }());
+    }
+
     return true;
   }
 
@@ -1910,8 +2016,9 @@ class AppState extends ChangeNotifier {
       );
     }
 
-    if (!moods.contains(mood)) {
+    if (!moods.any((m) => m.name.toLowerCase() == mood.name.toLowerCase())) {
       moods.add(mood);
+      unawaited(_persistMoods());
     }
 
     final text = note.trim();

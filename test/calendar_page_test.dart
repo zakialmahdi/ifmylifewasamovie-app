@@ -619,4 +619,84 @@ void main() {
       expect(app.inAppReminder.value, contains('jules (@jules) cheered your scene'));
     }, createHttpClient: (_) => _StubHttpClient());
   });
+
+  test('Mood equality is case-insensitive and trims whitespace', () {
+    const m1 = Mood('Hopeful', Hatch.diagonal);
+    const m2 = Mood(' hopeful ', Hatch.dots);
+    const m3 = Mood('restless', Hatch.cross);
+
+    expect(m1 == m2, isTrue);
+    expect(m1 == m3, isFalse);
+    expect(m1.hashCode, m2.hashCode);
+  });
+
+  test('updateMood updates moods list, in-memory scenes, and draftMood', () {
+    app.enterDemoMode();
+    addTearDown(() => app.demoMode = false);
+
+    final initialMoodCount = app.moods.length;
+    final testDate = DateTime(2026, 11, 25);
+    const initialMood = Mood('ecstatic', Hatch.zigzag);
+    app.ensureMood('ecstatic', Hatch.zigzag);
+    expect(app.moods.length, initialMoodCount + 1);
+    expect(app.moods.any((m) => m.name == 'ecstatic'), isTrue);
+
+    app.saveSceneForDate(
+      testDate,
+      song: const Song('Title', 'Artist', 120, Hatch.solid),
+      mood: initialMood,
+      note: 'feeling ecstatic today',
+    );
+    expect(app.entryFor(testDate)?.mood.name, 'ecstatic');
+
+    app.draftMood = initialMood;
+
+    // Update feeling to 'blissful' with Hatch.cross
+    final updated = app.updateMood(initialMood, newName: 'blissful', newHatch: Hatch.cross);
+    expect(updated, isTrue);
+
+    // Verify app.moods no longer contains 'ecstatic', now contains 'blissful'
+    expect(app.moods.any((m) => m.name == 'ecstatic'), isFalse);
+    final blissful = app.moods.firstWhere((m) => m.name == 'blissful');
+    expect(blissful.hatch, Hatch.cross);
+
+    // Verify scene's mood was updated in-memory
+    expect(app.entryFor(testDate)?.mood.name, 'blissful');
+    expect(app.entryFor(testDate)?.mood.hatch, Hatch.cross);
+
+    // Verify draftMood was updated
+    expect(app.draftMood.name, 'blissful');
+  });
+
+  test('deleteMood removes feeling and migrates in-memory scenes to fallback', () {
+    app.enterDemoMode();
+    addTearDown(() => app.demoMode = false);
+
+    const doomedMood = Mood('ephemeral', Hatch.dots);
+    app.ensureMood('ephemeral', Hatch.dots);
+    expect(app.moods.any((m) => m.name == 'ephemeral'), isTrue);
+
+    final testDate = DateTime(2026, 11, 26);
+    app.saveSceneForDate(
+      testDate,
+      song: const Song('Title', 'Artist', 120, Hatch.solid),
+      mood: doomedMood,
+      note: 'feeling ephemeral',
+    );
+    expect(app.entryFor(testDate)?.mood.name, 'ephemeral');
+
+    app.draftMood = doomedMood;
+
+    final deleted = app.deleteMood(doomedMood);
+    expect(deleted, isTrue);
+
+    // Verify mood was removed from app.moods
+    expect(app.moods.any((m) => m.name == 'ephemeral'), isFalse);
+
+    // Verify scene was migrated to app.moods.first
+    expect(app.entryFor(testDate)?.mood, app.moods.first);
+
+    // Verify draftMood was migrated
+    expect(app.draftMood, app.moods.first);
+  });
 }
