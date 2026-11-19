@@ -24,6 +24,7 @@ dependencies:
   package_info_plus: ^10.2.2
   path: ^1.9.1
   path_provider: ^2.1.6
+  shared_preferences: ^2.3.2
   supabase_flutter: ^2.18.3
   timezone: ^0.11.2
   url_launcher: ^6.3.3

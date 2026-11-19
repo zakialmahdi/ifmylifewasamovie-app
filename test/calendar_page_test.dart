@@ -699,4 +699,49 @@ void main() {
     // Verify draftMood was migrated
     expect(app.draftMood, app.moods.first);
   });
+
+  test('app.goToToday() resets selected date and viewMonth to today', () {
+    app.enterDemoMode();
+    addTearDown(() => app.demoMode = false);
+
+    // Shift to 3 months in the past and select a past day
+    app.shiftMonth(-3);
+    app.select(DateTime(2025, 5, 12));
+    expect(app.selected, DateTime(2025, 5, 12));
+    expect(app.viewMonth, isNot(DateTime(app.today.year, app.today.month, 1)));
+
+    // Jump to today
+    app.goToToday();
+    expect(app.selected, app.today);
+    expect(app.viewMonth, DateTime(app.today.year, app.today.month, 1));
+  });
+
+  testWidgets('CalendarPage today button navigates back to today', (tester) async {
+    await HttpOverrides.runZoned(() async {
+      app.enterDemoMode();
+      addTearDown(() => app.demoMode = false);
+
+      tester.view.physicalSize = const Size(360, 1800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      // Navigate to past month
+      app.shiftMonth(-2);
+      app.select(DateTime(app.today.year, app.today.month - 2, 5));
+
+      await tester.pumpWidget(const MaterialApp(home: Scaffold(body: CalendarPage())));
+      await tester.pumpAndSettle();
+
+      // Find 'today ↺' chip in CalendarPage
+      final todayChipFinder = find.widgetWithText(SketchChip, 'today ↺');
+      expect(todayChipFinder, findsOneWidget);
+
+      await tester.tap(todayChipFinder);
+      await tester.pumpAndSettle();
+
+      // Verify selected is now today and viewMonth is current month
+      expect(app.selected, app.today);
+      expect(app.viewMonth, DateTime(app.today.year, app.today.month, 1));
+    }, createHttpClient: (_) => _StubHttpClient());
+  });
 }

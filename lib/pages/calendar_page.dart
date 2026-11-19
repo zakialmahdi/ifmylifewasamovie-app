@@ -22,6 +22,18 @@ class _CalendarPageState extends State<CalendarPage> {
     app.shiftMonth(d);
   }
 
+  void _goToToday() {
+    final now = app.today;
+    final currentM = DateTime(app.viewMonth.year, app.viewMonth.month, 1);
+    final targetM = DateTime(now.year, now.month, 1);
+    if (targetM.isAfter(currentM)) {
+      _dir = 1;
+    } else if (targetM.isBefore(currentM)) {
+      _dir = -1;
+    }
+    app.goToToday();
+  }
+
   void _setMode(_CalendarCircleMode mode) {
     if (_mode == mode) return;
     setState(() => _mode = mode);
@@ -32,6 +44,10 @@ class _CalendarPageState extends State<CalendarPage> {
       (mode: _CalendarCircleMode.feeling, label: 'feeling', seed: 31),
       (mode: _CalendarCircleMode.song, label: 'song', seed: 32),
     ];
+    final isViewingToday = sameDay(app.selected, app.today) &&
+        app.viewMonth.year == app.today.year &&
+        app.viewMonth.month == app.today.month;
+
     return Wrap(
       spacing: 8,
       runSpacing: 6,
@@ -45,6 +61,13 @@ class _CalendarPageState extends State<CalendarPage> {
             seed: opt.seed,
             onTap: () => _setMode(opt.mode),
           ),
+        const SizedBox(width: 4),
+        SketchChip(
+          label: 'today ↺',
+          selected: isViewingToday,
+          seed: 45,
+          onTap: _goToToday,
+        ),
       ],
     );
   }
@@ -105,11 +128,14 @@ class _CalendarPageState extends State<CalendarPage> {
                 Row(children: [
                   _ArrowBtn(Icons.chevron_left, () => _shift(-1)),
                   Expanded(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      transitionBuilder: (c, a) => FadeTransition(opacity: a, child: c),
-                      child: Text('${monthNames[m.month - 1]} ${m.year}'.toUpperCase(),
-                          key: ValueKey(m), textAlign: TextAlign.center, style: T.head(19)),
+                    child: SketchTap(
+                      onTap: _goToToday,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        transitionBuilder: (c, a) => FadeTransition(opacity: a, child: c),
+                        child: Text('${monthNames[m.month - 1]} ${m.year}'.toUpperCase(),
+                            key: ValueKey(m), textAlign: TextAlign.center, style: T.head(19)),
+                      ),
                     ),
                   ),
                   _ArrowBtn(Icons.chevron_right, () => _shift(1)),

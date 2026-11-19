@@ -85,8 +85,18 @@ class _ReminderBannerHostState extends State<ReminderBannerHost>
           valueListenable: app.inAppReminder,
           builder: (context, msg, _) {
             final visible = msg != null;
-            final isReel = (msg ?? '').toLowerCase().contains('reel') ||
-                (msg ?? '').toLowerCase().contains('co-star');
+            final lower = (msg ?? '').toLowerCase();
+            final isCheer = lower.contains('cheer');
+            final isReel = !isCheer &&
+                (lower.contains('reel') || lower.contains('co-star') || lower.contains('invite'));
+
+            final bannerIcon = isCheer
+                ? Icons.favorite
+                : (isReel ? Icons.confirmation_number_outlined : Icons.movie_filter_outlined);
+            final bannerTitle = isCheer
+                ? 'SCENE CHEER 🍿'
+                : (isReel ? 'REEL INVITE' : 'DAILY REMINDER');
+
             return AnimatedPositioned(
               duration: const Duration(milliseconds: 320),
               curve: Curves.easeOutBack,
@@ -111,7 +121,7 @@ class _ReminderBannerHostState extends State<ReminderBannerHost>
                       child: Row(
                         children: [
                           Icon(
-                            isReel ? Icons.confirmation_number_outlined : Icons.movie_filter_outlined,
+                            bannerIcon,
                             size: 26,
                             color: Ink.ink,
                           ),
@@ -121,7 +131,7 @@ class _ReminderBannerHostState extends State<ReminderBannerHost>
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(isReel ? 'REEL INVITE' : 'DAILY REMINDER', style: T.head(14)),
+                                Text(bannerTitle, style: T.head(14)),
                                 const SizedBox(height: 2),
                                 Text(
                                   msg ?? '',

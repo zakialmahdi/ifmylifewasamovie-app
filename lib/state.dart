@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show Uint8List, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'services/reminder_service.dart';
@@ -1322,7 +1323,9 @@ class AppState extends ChangeNotifier {
       }
     }
 
-    // Check for newly discovered cheers on user's own journal scenes
+    // Register existing cheers on user's own journal scenes without spamming banners on startup.
+    // Live cheers received while the app is running are handled in real-time by _cheersChannel.
+    var newlyDiscoveredCheers = false;
     for (final sid in mySceneIds) {
       final userIds = cheerUserIdsByScene[sid] ?? const [];
       final myEntry = _entries.values.where((e) => e.dbId == sid).firstOrNull;
@@ -1332,23 +1335,12 @@ class AppState extends ChangeNotifier {
         final cheerKey = '${sid}_$cid';
         if (!_notifiedCheerKeys.contains(cheerKey)) {
           _notifiedCheerKeys.add(cheerKey);
-          unawaited(_persistNotifiedCheers());
-
-          final prof = profileById[cid];
-          final cheererName = (prof?['display_name'] as String?)?.trim() ?? 'a co-star';
-          final cheererHandle = (prof?['handle'] as String?)?.trim() ?? '';
-          final handlePart = cheererHandle.isNotEmpty ? ' ($cheererHandle)' : '';
-          final dateStr = dayLabel(myEntry.date);
-
-          inAppReminder.value = '$cheererName$handlePart cheered your scene for $dateStr! 🍿';
-          unawaited(ReminderService.instance.showSceneCheerNotification(
-            cheererName: cheererName,
-            cheererHandle: cheererHandle,
-            sceneDate: dateStr,
-            sceneId: sid,
-          ));
+          newlyDiscoveredCheers = true;
         }
       }
+    }
+    if (newlyDiscoveredCheers) {
+      unawaited(_persistNotifiedCheers());
     }
 
     final nextFriends = <Friend>[];
@@ -2303,6 +2295,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void goToToday() {
+    selected = today;
+    viewMonth = DateTime(today.year, today.month, 1);
+    notifyListeners();
+  }
+
   // ── friends & shared calendars ──
 
   void toggleSharing() {
@@ -3084,49 +3082,81 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _loadNotifiedInvites() async {
-    if (kIsWeb) return;
     try {
-      final docs = await getApplicationDocumentsDirectory();
-      final file = File('${docs.path}/notified_invites.json');
-      if (await file.exists()) {
-        final list = jsonDecode(await file.readAsString()) as List<dynamic>?;
-        if (list != null) {
-          _notifiedInviteIds.addAll(list.whereType<num>().map((e) => e.toInt()));
-        }
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('notified_invite_ids');
+      if (list != null && list.isNotEmpty) {
+        _notifiedInviteIds.addAll(list.map((e) => int.tryParse(e)).whereType<int>());
+        return;
       }
     } catch (_) {}
+
+    if (!kIsWeb) {
+      try {
+        final docs = await getApplicationDocumentsDirectory();
+        final file = File('${docs.path}/notified_invites.json');
+        if (await file.exists()) {
+          final list = jsonDecode(await file.readAsString()) as List<dynamic>?;
+          if (list != null) {
+            _notifiedInviteIds.addAll(list.whereType<num>().map((e) => e.toInt()));
+          }
+        }
+      } catch (_) {}
+    }
   }
 
   Future<void> _persistNotifiedInvites() async {
-    if (kIsWeb) return;
     try {
-      final docs = await getApplicationDocumentsDirectory();
-      final file = File('${docs.path}/notified_invites.json');
-      await file.writeAsString(jsonEncode(_notifiedInviteIds.toList()), flush: true);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('notified_invite_ids', _notifiedInviteIds.map((e) => e.toString()).toList());
     } catch (_) {}
+
+    if (!kIsWeb) {
+      try {
+        final docs = await getApplicationDocumentsDirectory();
+        final file = File('${docs.path}/notified_invites.json');
+        await file.writeAsString(jsonEncode(_notifiedInviteIds.toList()), flush: true);
+      } catch (_) {}
+    }
   }
 
   Future<void> _loadNotifiedCheers() async {
-    if (kIsWeb) return;
     try {
-      final docs = await getApplicationDocumentsDirectory();
-      final file = File('${docs.path}/notified_cheers.json');
-      if (await file.exists()) {
-        final list = jsonDecode(await file.readAsString()) as List<dynamic>?;
-        if (list != null) {
-          _notifiedCheerKeys.addAll(list.whereType<String>());
-        }
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('notified_cheer_keys');
+      if (list != null && list.isNotEmpty) {
+        _notifiedCheerKeys.addAll(list);
+        return;
       }
     } catch (_) {}
+
+    if (!kIsWeb) {
+      try {
+        final docs = await getApplicationDocumentsDirectory();
+        final file = File('${docs.path}/notified_cheers.json');
+        if (await file.exists()) {
+          final list = jsonDecode(await file.readAsString()) as List<dynamic>?;
+          if (list != null) {
+            _notifiedCheerKeys.addAll(list.whereType<String>());
+          }
+        }
+      } catch (_) {}
+    }
   }
 
   Future<void> _persistNotifiedCheers() async {
-    if (kIsWeb) return;
     try {
-      final docs = await getApplicationDocumentsDirectory();
-      final file = File('${docs.path}/notified_cheers.json');
-      await file.writeAsString(jsonEncode(_notifiedCheerKeys.toList()), flush: true);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('notified_cheer_keys', _notifiedCheerKeys.toList());
     } catch (_) {}
+
+    if (!kIsWeb) {
+      try {
+        final docs = await getApplicationDocumentsDirectory();
+        final file = File('${docs.path}/notified_cheers.json');
+        await file.writeAsString(jsonEncode(_notifiedCheerKeys.toList()), flush: true);
+      } catch (_) {}
+    }
   }
 
   // ── Song Persistence across App Restarts ──
