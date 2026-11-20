@@ -1418,15 +1418,17 @@ class _SettingsPageState extends State<SettingsPage> {
                 () => _pickReminderTime(context),
               )),
             r(_ruleRow('Mood prompts', 'little questions before you save', app.moodPrompts, 'prompts', 2)),
-            r(_ruleRow('Privacy lock', 'keep the diary to yourself', app.privacyLock, 'lock', 3)),
-            if (app.privacyLock)
-              r(_navRow(
-                Icons.pin_outlined,
-                'Change 4-digit PIN',
-                'update your diary lock code',
-                79,
-                () => _changePrivacyPinDialog(context),
-              )),
+            if (!kIsWeb) ...[
+              r(_ruleRow('Privacy lock', 'keep the diary to yourself', app.privacyLock, 'lock', 3)),
+              if (app.privacyLock)
+                r(_navRow(
+                  Icons.pin_outlined,
+                  'Change 4-digit PIN',
+                  'update your diary lock code',
+                  79,
+                  () => _changePrivacyPinDialog(context),
+                )),
+            ],
 
             const SizedBox(height: 10),
             r(const SectionTitle('Sketch paper')),

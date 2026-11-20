@@ -1,11 +1,11 @@
 {
-    "name": "if_my_life_was_a_movie",
-    "short_name": "if_my_life_was_a_movie",
+    "name": "If My Life A Movie",
+    "short_name": "If My Life A Movie",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "A song-based mood journal with a conceptual sketch UI.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

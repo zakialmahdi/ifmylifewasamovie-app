@@ -402,7 +402,7 @@ class AppState extends ChangeNotifier {
   set hasSeenIntro(bool v) => _hasSeenIntro = v;
 
   bool get hasPrivacyPin => _privacyPin != null && _privacyPin!.length == 4;
-  bool get isPrivacyLocked => privacyLock && hasPrivacyPin && !isPrivacyUnlocked;
+  bool get isPrivacyLocked => !kIsWeb && privacyLock && hasPrivacyPin && !isPrivacyUnlocked;
 
   int? _lastSongSavedAtMillis;
 
@@ -3290,6 +3290,7 @@ class AppState extends ChangeNotifier {
   }
 
   void lockPrivacy() {
+    if (kIsWeb) return;
     if (privacyLock && hasPrivacyPin) {
       isPrivacyUnlocked = false;
       notifyListeners();

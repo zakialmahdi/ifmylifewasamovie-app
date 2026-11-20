@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Ink;
 
 import '../sketch.dart';
@@ -206,6 +207,8 @@ class _PrivacyLockGateState extends State<PrivacyLockGate>
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) return widget.child;
+
     return ListenableBuilder(
       listenable: app,
       builder: (context, _) {

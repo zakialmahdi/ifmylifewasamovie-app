@@ -44,9 +44,6 @@ class _CalendarPageState extends State<CalendarPage> {
       (mode: _CalendarCircleMode.feeling, label: 'feeling', seed: 31),
       (mode: _CalendarCircleMode.song, label: 'song', seed: 32),
     ];
-    final isViewingToday = sameDay(app.selected, app.today) &&
-        app.viewMonth.year == app.today.year &&
-        app.viewMonth.month == app.today.month;
 
     return Wrap(
       spacing: 8,
@@ -61,13 +58,6 @@ class _CalendarPageState extends State<CalendarPage> {
             seed: opt.seed,
             onTap: () => _setMode(opt.mode),
           ),
-        const SizedBox(width: 4),
-        SketchChip(
-          label: 'today ↺',
-          selected: isViewingToday,
-          seed: 45,
-          onTap: _goToToday,
-        ),
       ],
     );
   }
@@ -181,7 +171,7 @@ class _CalendarPageState extends State<CalendarPage> {
       for (var c = 0; c < 7; c++, day++) {
         cells.add(Expanded(
           child: (day < 1 || day > days)
-              ? const SizedBox(height: 52)
+              ? const SizedBox(height: 56)
               : _cell(DateTime(m.year, m.month, day)),
         ));
       }
@@ -193,15 +183,16 @@ class _CalendarPageState extends State<CalendarPage> {
   Widget _cell(DateTime d) {
     final e = app.entryFor(d);
     final sel = sameDay(d, app.selected);
+    final isToday = sameDay(d, app.today);
     return SizedBox(
-      height: 52,
+      height: 56,
       child: SketchTap(
         pressedScale: .82,
         onTap: () => app.select(d),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           SizedBox(
-            width: 40,
-            height: 38,
+            width: 44,
+            height: 40,
             child: Stack(alignment: Alignment.center, children: [
               if (e != null)
                 Transform.scale(
@@ -225,11 +216,41 @@ class _CalendarPageState extends State<CalendarPage> {
                           ),
                   ),
                 )
+              else if (isToday)
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Ink.ink, width: 1.6),
+                  ),
+                  child: Center(
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Ink.ink,
+                      ),
+                    ),
+                  ),
+                )
               else
                 const SizedBox(
                     width: 34,
                     height: 34,
                     child: CustomPaint(painter: _FaintCircle())),
+              if (isToday)
+                IgnorePointer(
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Ink.ink, width: 2.0),
+                    ),
+                  ),
+                ),
               if (sel)
                 IgnorePointer(
                   child: TweenAnimationBuilder<double>(
@@ -237,8 +258,8 @@ class _CalendarPageState extends State<CalendarPage> {
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutBack,
                     child: const SizedBox(
-                        width: 40,
-                        height: 40,
+                        width: 42,
+                        height: 42,
                         child: CustomPaint(painter: DashedCirclePainter())),
                     builder: (_, s, ring) => Transform.scale(scale: s, child: ring),
                   ),
@@ -259,8 +280,24 @@ class _CalendarPageState extends State<CalendarPage> {
                 ),
             ]),
           ),
-          Text('${d.day}',
-              style: T.body(11, c: e != null ? Ink.ink : Ink.faint)),
+          const SizedBox(height: 2),
+          if (isToday)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: Ink.ink,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '${d.day}',
+                style: T.body(10, c: Ink.paper, w: FontWeight.w700),
+              ),
+            )
+          else
+            Text(
+              '${d.day}',
+              style: T.body(11, c: e != null ? Ink.ink : Ink.faint),
+            ),
         ]),
       ),
     );

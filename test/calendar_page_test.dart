@@ -716,7 +716,7 @@ void main() {
     expect(app.viewMonth, DateTime(app.today.year, app.today.month, 1));
   });
 
-  testWidgets('CalendarPage today button navigates back to today', (tester) async {
+  testWidgets('CalendarPage marks today and removes today chip', (tester) async {
     await HttpOverrides.runZoned(() async {
       app.enterDemoMode();
       addTearDown(() => app.demoMode = false);
@@ -725,18 +725,31 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
-      // Navigate to past month
-      app.shiftMonth(-2);
-      app.select(DateTime(app.today.year, app.today.month - 2, 5));
+      // Reset to current month
+      app.goToToday();
 
       await tester.pumpWidget(const MaterialApp(home: Scaffold(body: CalendarPage())));
       await tester.pumpAndSettle();
 
-      // Find 'today ↺' chip in CalendarPage
+      // Verify 'today ↺' chip is removed from CalendarPage
       final todayChipFinder = find.widgetWithText(SketchChip, 'today ↺');
-      expect(todayChipFinder, findsOneWidget);
+      expect(todayChipFinder, findsNothing);
 
-      await tester.tap(todayChipFinder);
+      // Verify today's date has inverted paper-ink badge
+      final todayNumberFinder = find.text('${app.today.day}');
+      expect(todayNumberFinder, findsAtLeastNWidgets(1));
+
+      // Navigate to past month
+      app.shiftMonth(-2);
+      app.select(DateTime(app.today.year, app.today.month - 2, 5));
+      await tester.pumpAndSettle();
+
+      // Tap month title to return to today
+      final monthTitleFinder = find.text(
+        '${monthNames[app.viewMonth.month - 1]} ${app.viewMonth.year}'.toUpperCase(),
+      );
+      expect(monthTitleFinder, findsOneWidget);
+      await tester.tap(monthTitleFinder);
       await tester.pumpAndSettle();
 
       // Verify selected is now today and viewMonth is current month
