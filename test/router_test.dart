@@ -182,6 +182,43 @@ void main() {
     expect(authRedirect(fakeContext, homeState), isNull);
   });
 
+  test('Demo reel shows intro every time user enters demo mode', () {
+    app.isRecoveringPassword = false;
+    // 1. Enter demo mode for the first time
+    app.enterDemoMode();
+    expect(app.demoMode, isTrue);
+    expect(app.isAuthenticated, isTrue);
+    expect(app.hasSeenIntro, isFalse);
+
+    final homeState = GoRouterState(
+      appRouter.configuration,
+      uri: Uri.parse('/'),
+      matchedLocation: '/',
+      fullPath: '/',
+      pathParameters: const <String, String>{},
+      pageKey: const ValueKey('home'),
+    );
+    // Redirects to /intro
+    expect(authRedirect(fakeContext, homeState), equals('/intro'));
+
+    // 2. Complete intro
+    app.completeIntro();
+    expect(app.hasSeenIntro, isTrue);
+    expect(authRedirect(fakeContext, homeState), isNull);
+
+    // 3. User leaves demo reel (signs out back to ticket booth)
+    app.signOut();
+    expect(app.demoMode, isFalse);
+    expect(app.isAuthenticated, isFalse);
+
+    // 4. User re-enters demo mode
+    app.enterDemoMode();
+    expect(app.demoMode, isTrue);
+    expect(app.hasSeenIntro, isFalse);
+    // Redirects to /intro again!
+    expect(authRedirect(fakeContext, homeState), equals('/intro'));
+  });
+
   test('Intro replay is allowed for authenticated user', () {
     app.isRecoveringPassword = false;
     app.enterDemoMode();

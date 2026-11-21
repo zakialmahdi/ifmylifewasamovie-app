@@ -394,12 +394,10 @@ class AppState extends ChangeNotifier {
   bool privacyLock = false;
   String? _privacyPin;
   bool isPrivacyUnlocked = false;
-  bool _hasSeenIntro = true;
+  bool hasSeenIntro = true;
   bool _pendingSignUpIntro = false;
   bool _suppressIntroOnSignIn = false;
   final Set<String> _seenIntroUsers = <String>{};
-  bool get hasSeenIntro => _hasSeenIntro || demoMode;
-  set hasSeenIntro(bool v) => _hasSeenIntro = v;
 
   bool get hasPrivacyPin => _privacyPin != null && _privacyPin!.length == 4;
   bool get isPrivacyLocked => !kIsWeb && privacyLock && hasPrivacyPin && !isPrivacyUnlocked;
@@ -534,9 +532,9 @@ class AppState extends ChangeNotifier {
     demoMode = false;
     if (switching) {
       if (isInitialSession || _suppressIntroOnSignIn) {
-        _hasSeenIntro = true;
+        hasSeenIntro = true;
       } else {
-        _hasSeenIntro = !_isNewlyRegisteredUser(u);
+        hasSeenIntro = !_isNewlyRegisteredUser(u);
       }
       _pendingSignUpIntro = false;
       unawaited(_loadIntroSettings());
@@ -579,7 +577,7 @@ class AppState extends ChangeNotifier {
     unawaited(ReminderService.instance.cancelAll());
     user = null;
     demoMode = false;
-    _hasSeenIntro = true;
+    hasSeenIntro = true;
     _pendingSignUpIntro = false;
     _suppressIntroOnSignIn = false;
     syncing = false;
@@ -615,7 +613,7 @@ class AppState extends ChangeNotifier {
       );
       if (res.user != null) {
         _applyUser(res.user!);
-        _hasSeenIntro = true;
+        hasSeenIntro = true;
         notifyListeners();
         await loadFromDatabase();
       }
@@ -903,7 +901,7 @@ class AppState extends ChangeNotifier {
   void enterDemoMode() {
     user = null;
     demoMode = true;
-    hasSeenIntro = true;
+    hasSeenIntro = false;
     dbReady = false;
     tab = 0;
     name = 'maya';
@@ -1043,7 +1041,7 @@ class AppState extends ChangeNotifier {
       // 1. Ensure profile exists & load preferences
       var profile = await _ensureProfileExists(uid, preferredName: preferredName);
       if (profile == null && !_seenIntroUsers.contains(uid) && !_suppressIntroOnSignIn) {
-        _hasSeenIntro = false;
+        hasSeenIntro = false;
         notifyListeners();
       }
 
@@ -3334,8 +3332,8 @@ class AppState extends ChangeNotifier {
           }
           final currentUid = user?.id ?? _sb.auth.currentSession?.user.id;
           if (currentUid != null && _seenIntroUsers.contains(currentUid)) {
-            if (!_hasSeenIntro) {
-              _hasSeenIntro = true;
+            if (!hasSeenIntro) {
+              hasSeenIntro = true;
               notifyListeners();
             }
           }
@@ -3345,7 +3343,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> completeIntro() async {
-    _hasSeenIntro = true;
+    hasSeenIntro = true;
     final uid = user?.id;
     if (uid != null) {
       _seenIntroUsers.add(uid);
@@ -3382,7 +3380,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> resetIntro() async {
-    _hasSeenIntro = false;
+    hasSeenIntro = false;
     _seenIntroUsers.clear();
     notifyListeners();
     if (kIsWeb) return;

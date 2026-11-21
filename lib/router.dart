@@ -42,9 +42,10 @@ String? authRedirect(BuildContext context, GoRouterState state) {
   // 3. Authenticated user who hasn't completed onboarding/intro:
   // Show intro carousel before access to the home screen.
   if (!app.hasSeenIntro) {
-    if (isAuthRoute || isResetRoute || location == '/') {
+    if (!isIntroRoute) {
       return '/intro';
     }
+    return null;
   }
 
   // 4. Authenticated user visiting /auth or /reset-password (when not in recovery flow):
