@@ -6,6 +6,7 @@ import 'package:flutter/material.dart' hide Ink;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:if_my_life_was_a_movie/pages/calendar_page.dart';
 import 'package:if_my_life_was_a_movie/pages/friends_page.dart';
+import 'package:if_my_life_was_a_movie/pages/settings_page.dart';
 import 'package:if_my_life_was_a_movie/widgets/scene_editor.dart';
 import 'package:if_my_life_was_a_movie/sketch.dart';
 import 'package:if_my_life_was_a_movie/state.dart';
@@ -813,6 +814,38 @@ void main() {
       app.toggleFriendSharing('jules');
       expect(app.isSharedWith('jules'), isTrue);
       expect(app.sharingAudience, 'all');
+    }, createHttpClient: (_) => _StubHttpClient());
+  });
+
+  test('sendTestReminder and sendTestCheerNotification trigger inAppReminder correctly', () async {
+    app.enterDemoMode();
+    addTearDown(() => app.demoMode = false);
+
+    app.inAppReminder.value = null;
+    await app.sendTestReminder();
+    expect(app.inAppReminder.value, isNotNull);
+    expect(app.inAppReminder.value!.isNotEmpty, isTrue);
+
+    await app.sendTestCheerNotification();
+    expect(app.inAppReminder.value, contains('cheered your scene'));
+    expect(app.inAppReminder.value, contains('🍿'));
+  });
+
+  testWidgets('SettingsPage displays Send test reminder when daily reminder is enabled', (tester) async {
+    await HttpOverrides.runZoned(() async {
+      app.enterDemoMode();
+      addTearDown(() => app.demoMode = false);
+      app.dailyReminder = true;
+
+      tester.view.physicalSize = const Size(390, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(const MaterialApp(home: Scaffold(body: SettingsPage())));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Send test reminder'), findsOneWidget);
+      expect(find.text('Preview scene cheer notification'), findsOneWidget);
     }, createHttpClient: (_) => _StubHttpClient());
   });
 }

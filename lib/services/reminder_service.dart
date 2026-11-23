@@ -60,7 +60,7 @@ class ReminderService {
       }
 
       const settings = InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: AndroidInitializationSettings('@drawable/ic_notification'),
         iOS: DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,
@@ -207,6 +207,7 @@ class ReminderService {
       category: AndroidNotificationCategory.reminder,
       visibility: NotificationVisibility.public,
       ticker: 'pick today\'s song',
+      icon: '@drawable/ic_notification',
     ),
     iOS: DarwinNotificationDetails(
       presentAlert: true,
@@ -256,7 +257,7 @@ class ReminderService {
       category: AndroidNotificationCategory.social,
       visibility: NotificationVisibility.public,
       ticker: 'new reel invite',
-      icon: '@mipmap/ic_launcher',
+      icon: '@drawable/ic_notification',
       playSound: true,
       enableVibration: true,
     ),

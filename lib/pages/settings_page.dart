@@ -1411,7 +1411,7 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: 10),
             r(const SectionTitle('The rules')),
             r(_ruleRow('Daily reminder', 'pick today\'s song at ${app.reminderTimeLabel}', app.dailyReminder, 'reminder', 1)),
-            if (app.dailyReminder)
+            if (app.dailyReminder) ...[
               r(_navRow(
                 Icons.alarm_outlined,
                 'Reminder time',
@@ -1419,6 +1419,22 @@ class _SettingsPageState extends State<SettingsPage> {
                 78,
                 () => _pickReminderTime(context),
               )),
+              r(_navRow(
+                Icons.notifications_active_outlined,
+                'Send test reminder',
+                'preview the daily reminder notification now',
+                785,
+                () async {
+                  final ok = await app.sendTestReminder();
+                  if (context.mounted) {
+                    showNote(
+                      context,
+                      ok ? 'Test reminder sent 🔔' : 'Could not trigger reminder (check notification permissions)',
+                    );
+                  }
+                },
+              )),
+            ],
             r(_ruleRow('Mood prompts', 'little questions before you save', app.moodPrompts, 'prompts', 2)),
             if (!kIsWeb) ...[
               r(_ruleRow('Privacy lock', 'keep the diary to yourself', app.privacyLock, 'lock', 3)),
@@ -1565,6 +1581,21 @@ class _SettingsPageState extends State<SettingsPage> {
                 'demo: see how the smartphone home screen prompt looks',
                 86,
                 () => showPwaInstallDialog(context),
+              )),
+              r(_navRow(
+                Icons.favorite_border,
+                'Preview scene cheer notification',
+                'demo: test sample cheer banner and alert',
+                87,
+                () async {
+                  final ok = await app.sendTestCheerNotification();
+                  if (context.mounted) {
+                    showNote(
+                      context,
+                      ok ? 'Test cheer sent 🍿' : 'Could not trigger cheer notification',
+                    );
+                  }
+                },
               )),
             ],
 
