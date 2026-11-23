@@ -1,6 +1,6 @@
 # 🎬 If My Life Was a Movie
 
-**Latest Version: `v1.1.4`** · [Download APK](https://github.com/zakialmahdi/ifmylifewasamovie-app/releases) · [Changelog](CHANGELOG.md)
+**Latest Version: `v1.1.5`** · [Download APK](https://github.com/zakialmahdi/ifmylifewasamovie-app/releases) · [Changelog](CHANGELOG.md)
 
 *If My Life Was a Movie* is a song-based mood journal designed with an intimate, hand-drawn sketch aesthetic. Turn your days into scenes, your memories into cinema, and score every moment with the soundtrack of your life.
 
@@ -14,14 +14,14 @@
 
 ---
 
-## 🆕 What's New in v1.1.4
+## 🆕 What's New in v1.1.5
 
-* 🍿 **Journal Scene Cheers & In-App Notifications**: Cheers are now fully displayed from your own journal perspective. See cheer counts, who cheered your daily scenes with a tap-to-view popup, subtle calendar heart indicators, and receive real-time in-app alerts and notifications when a friend cheers on your movie reel.
-* 🎨 **Pattern Swatch Selection on Scene Updates**: When adding new feelings from the calendar scene editor, choose from the full horizontal pattern swatch selector just like on the Home screen.
-* 👥 **Connected Friend Feel Viewing**: View connected friends' exact feeling badges on the Today's Moods card and shared scene details, plus toggle between `song` (album cover) and `feeling` (friend's hatch patterns and custom legend) on the shared calendar.
-* 🔒 **Isolated Feelings & Cloud Persistence**: Custom feelings are strictly isolated per user and persist to user profiles in Supabase without leaking across friends or devices.
-* 💾 **Reliable Scene Persistence**: Fixed Postgres trigger permission denials (`private.set_updated_at`) on scene updates/upserts, expanded constraint validations for all 11 pattern hatches, and reinforced offline-first caching.
-* 📱 **Larger Calendar Circles & Responsive Layout**: 34px calendar circle indicators for better touch targets and dynamic width adaptation across tablets and phones.
+* 👥 **Reliable Friend Journal Scenes & Latest Scene Fallback**: Resolved `privacy_lock` RLS filtering and `sharing_audience` desync that hid connected friends' scenes, added real-time `public.scenes` sync, and automatically displays each friend's most recent filmed scene when they are `"quiet today"`.
+* 📲 **Add to Home Screen (PWA on Web)**: Smartphone visitors opening the latest web update are prompted once to install **If My Life A Movie** to their home screen (suppressed on laptops/desktops), with an **Add to Home Screen** button in web Settings and a **Developer** preview section in Demo Mode.
+* 📅 **Marked Today's Date on Calendar**: Highlighted today's date directly on the calendar grid with a solid outer ink ring and inverted day-number badge clearly visible across album covers, feeling patterns, and unfilmed days.
+* 🎨 **Synchronized Feeling Edits**: Renaming or changing a feeling's pattern swatch now updates all matching scenes in Supabase so old feelings never reappear after restarting.
+* 🍿 **Deduplicated Scene Cheer Alerts**: Separated cheer banners (`SCENE CHEER 🍿`) from daily reminders and persisted notified cheers across sessions so past cheers don't re-alert on launch.
+* 🎞️ **Demo Reel Walkthrough**: Plays the 4-slide "How this app works" storyboard carousel every time a user enters the Demo Reel.
 
 ---
 
@@ -48,7 +48,7 @@
 ## 📥 Download & Install
 
 ### Android (`.apk`)
-1. Download **`ifmylifewasamovie-v1.1.4.apk`** from the **Assets** section on the [Releases Page](https://github.com/zakialmahdi/ifmylifewasamovie-app/releases).
+1. Download **`ifmylifewasamovie-v1.1.5.apk`** from the **Assets** section on the [Releases Page](https://github.com/zakialmahdi/ifmylifewasamovie-app/releases).
 2. Open the `.apk` file on your Android device.
 3. If prompted, allow installation from unknown sources for your browser or file manager.
 

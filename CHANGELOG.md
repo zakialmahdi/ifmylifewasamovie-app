@@ -5,6 +5,23 @@ All notable changes to **If My Life Was a Movie** will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.5] - 2026-11-23
+
+### Added
+- **PWA Add to Home Screen (Web)**: Smartphone-only popup on first visit to the latest update asking if the user wants to add **If My Life A Movie** to their home screen, plus an **Add to Home Screen** button in Settings on the website.
+- **Developer Popup Previews in Demo Mode**: Added a **Developer** section in Settings during Demo Mode to trigger both the **Preview update popup** and **Preview add to home screen popup** on demand.
+- **Today Marker on Calendar**: Marked today's date directly on the calendar grid with a solid outer ink ring and inverted day-number badge clearly visible with album covers, feeling patterns, or unfilmed days.
+- **Latest Friend Scene on Friends Page**: When a connected co-star is `"quiet today"` (hasn't filmed today yet), their card now displays their most recent filmed scene (`latest scene · <date>`) and auto-selects that date on the shared calendar.
+- **Demo Reel Onboarding Slideshow**: The 4-slide "How this app works" storyboard carousel now plays every time a visitor enters the Demo Reel.
+- **Web Audio Bridge & Link Preview Metadata**: Added invisible YouTube IFrame audio streaming with serverless video ID lookup on web and updated Open Graph / social link preview title (`If My Life A Movie`) and description.
+
+### Fixed
+- **Friend Journal Scene Visibility**: Decoupled the local 4-digit PIN lock (`privacy_lock`) from Supabase `public.scenes` and `public.profiles` RLS policies, auto-healed stuck `sharing_audience = 'specific'` profiles, and added real-time `public.scenes` subscriptions so friends' scenes always load reliably.
+- **Custom Feeling Updates & Sync**: Editing or deleting a feeling now updates all matching scenes in Supabase `public.scenes` and local storage so old feeling names are never resurrected on restart.
+- **Cheer Notification Deduplication**: Separated the scene cheer banner (`SCENE CHEER 🍿`) from daily reminders and persisted notified cheer keys across sessions so historical cheers do not re-fire on startup.
+- **Midnight Date Rollover & Token Refresh Retry**: `app.today` now rolls over dynamically across midnight when resuming from background, and database loading retries automatically after `AuthChangeEvent.tokenRefreshed`.
+- **Web Privacy Lock Bypass**: Disabled and hid the mobile-only 4-digit PIN privacy lock on the web build.
+
 ## [1.1.4] - 2026-11-18
 
 ### Added

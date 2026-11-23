@@ -915,15 +915,15 @@ insert into public.app_releases (
 )
 select
   'all',
-  '1.1.4',
-  4,
-  'Scene cheers displayed on your personal journal calendar, real-time in-app alerts of who cheered, scene editor pattern swatch selection, shared calendar view toggle, and scene persistence fixes.',
+  '1.1.5',
+  5,
+  'Fixed friend journal scenes visibility and added latest-scene fallback when friends are quiet today, today marker on calendar, feeling edit sync, deduplicated cheer alerts, PWA Add to Home Screen prompt, and Demo Reel walkthrough.',
   'https://github.com/zakialmahdi/ifmylifewasamovie-app/releases/latest',
   false,
   true
 where not exists (
   select 1
   from public.app_releases
-  where latest_version = '1.1.4'
-    and latest_build_number = 4
+  where latest_version = '1.1.5'
+    and latest_build_number = 5
 );

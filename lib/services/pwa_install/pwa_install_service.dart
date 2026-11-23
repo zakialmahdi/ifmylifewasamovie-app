@@ -9,7 +9,7 @@ abstract class PwaInstallService extends ChangeNotifier {
 
   /// Version-scoped preference key so devices opening the latest update on a
   /// smartphone for the first time see the "Add to Home Screen" prompt once.
-  static const String kPromptSeenPrefKey = 'pwa_homescreen_prompt_seen_v1_1_4';
+  static const String kPromptSeenPrefKey = 'pwa_homescreen_prompt_seen_v1_1_5';
 
   bool get isWebSupported;
   bool get isSmartphone;
