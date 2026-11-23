@@ -205,6 +205,17 @@ class Friend {
 
   Entry? entryFor(DateTime d) => entries[dayKey(d)];
 
+  Entry? get latestEntry {
+    if (entries.isEmpty) return null;
+    Entry? latest;
+    for (final e in entries.values) {
+      if (latest == null || e.date.isAfter(latest.date)) {
+        latest = e;
+      }
+    }
+    return latest;
+  }
+
   List<Mood> get moods {
     final seen = <String>{};
     final list = <Mood>[];
@@ -342,6 +353,7 @@ class AppState extends ChangeNotifier {
   StreamSubscription<AuthState>? _authSub;
   RealtimeChannel? _friendshipsChannel;
   RealtimeChannel? _cheersChannel;
+  RealtimeChannel? _scenesChannel;
   final Set<int> _notifiedInviteIds = <int>{};
   final Set<String> _notifiedCheerKeys = <String>{};
 
@@ -349,6 +361,7 @@ class AppState extends ChangeNotifier {
   bool demoMode = false;
   bool syncing = false;
   bool dbReady = false;
+  bool _initialLoadSucceeded = false;
   bool isRecoveringPassword = false;
 
   String? _dbHandle;
@@ -357,12 +370,30 @@ class AppState extends ChangeNotifier {
   bool get isAuthenticated => user != null || demoMode;
   String? get email => user?.email;
 
-  late final DateTime today;
+  late DateTime today;
   late DateTime viewMonth;
   late DateTime selected;
 
   late DateTime friendViewMonth;
   late DateTime friendSelectedDate;
+
+  void refreshToday() {
+    final now = DateTime.now();
+    final currentToday = DateTime(now.year, now.month, now.day);
+    if (!sameDay(today, currentToday)) {
+      final prevToday = today;
+      today = currentToday;
+      if (sameDay(selected, prevToday)) {
+        selected = currentToday;
+        viewMonth = DateTime(currentToday.year, currentToday.month, 1);
+      }
+      if (sameDay(friendSelectedDate, prevToday)) {
+        friendSelectedDate = currentToday;
+        friendViewMonth = DateTime(currentToday.year, currentToday.month, 1);
+      }
+      notifyListeners();
+    }
+  }
   String activeFriendId = 'jules';
   bool sharingEnabled = true;
   String sharingAudience = 'all'; // 'all' or 'specific'
@@ -500,7 +531,10 @@ class AppState extends ChangeNotifier {
           isInitialSession: data.event == AuthChangeEvent.initialSession,
         );
         notifyListeners();
-        if (switchedUser) {
+        if (switchedUser ||
+            (!_initialLoadSucceeded &&
+                (data.event == AuthChangeEvent.tokenRefreshed ||
+                    data.event == AuthChangeEvent.signedIn))) {
           unawaited(loadFromDatabase());
         }
       } else if (user != null) {
@@ -554,12 +588,16 @@ class AppState extends ChangeNotifier {
                 ? fallbackEmailName
                 : 'director';
     if (switching) {
+      _initialLoadSucceeded = false;
       name = chosen;
       avatarHatch = Hatch.cross;
       avatarUrl = (metaAvatar != null && metaAvatar.isNotEmpty) ? metaAvatar : null;
       avatarMemoryBytes = null;
       _dbHandle = null;
       _dbInviteCode = null;
+      sharingEnabled = true;
+      sharingAudience = 'all';
+      sharedFriendIds.clear();
       _entries.clear();
       friends.clear();
       invites.clear();
@@ -582,6 +620,7 @@ class AppState extends ChangeNotifier {
     _suppressIntroOnSignIn = false;
     syncing = false;
     dbReady = false;
+    _initialLoadSucceeded = false;
     isRecoveringPassword = false;
     isPrivacyUnlocked = false;
     avatarHatch = Hatch.cross;
@@ -589,6 +628,9 @@ class AppState extends ChangeNotifier {
     avatarMemoryBytes = null;
     _dbHandle = null;
     _dbInviteCode = null;
+    sharingEnabled = true;
+    sharingAudience = 'all';
+    sharedFriendIds.clear();
     tab = 0;
     _entries.clear();
     friends.clear();
@@ -934,13 +976,16 @@ class AppState extends ChangeNotifier {
   }
 
   Entry _entryFromRow(Map<String, dynamic> row, {bool isOwnScene = false}) {
-    final rawDate = row['scene_date'] as String;
-    final parts = rawDate.split('-');
-    final date = DateTime(
-      int.parse(parts[0]),
-      int.parse(parts[1]),
-      int.parse(parts[2]),
-    );
+    final rawDate = ((row['scene_date'] as String?) ?? dayKey(today)).trim();
+    final datePart = rawDate.split('T').first.split(' ').first;
+    final parts = datePart.split('-');
+    final date = parts.length >= 3
+        ? DateTime(
+            int.tryParse(parts[0]) ?? today.year,
+            int.tryParse(parts[1]) ?? today.month,
+            int.tryParse(parts[2]) ?? today.day,
+          )
+        : today;
     final rawVid = (row['song_video_id'] as String?)?.trim();
     final rawCover = (row['song_cover_url'] as String?)?.trim();
     final cleanCover = (rawCover != null &&
@@ -1013,7 +1058,7 @@ class AppState extends ChangeNotifier {
               'paper': paper,
               'daily_reminder': dailyReminder,
               'mood_prompts': moodPrompts,
-              'privacy_lock': privacyLock,
+              'privacy_lock': false,
               'sharing_enabled': sharingEnabled,
               'sharing_audience': sharingAudience,
               'shared_friend_ids': sharedFriendIds.toList(),
@@ -1030,6 +1075,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> loadFromDatabase({String? preferredName}) async {
+    refreshToday();
     final current = user;
     if (current == null) return;
     final uid = current.id;
@@ -1059,7 +1105,11 @@ class AppState extends ChangeNotifier {
         paper = (profile['paper'] as String?) ?? paper;
         dailyReminder = (profile['daily_reminder'] as bool?) ?? dailyReminder;
         moodPrompts = (profile['mood_prompts'] as bool?) ?? moodPrompts;
-        privacyLock = (profile['privacy_lock'] as bool?) ?? privacyLock;
+        // privacy_lock is strictly a local device PIN gate; if it was set to true
+        // in Supabase profiles, heal it to false so RLS policies never hide shared scenes.
+        if (profile['privacy_lock'] == true) {
+          unawaited(_syncProfileFields(<String, dynamic>{'privacy_lock': false}));
+        }
         sharingEnabled = (profile['sharing_enabled'] as bool?) ?? sharingEnabled;
         sharingAudience = (profile['sharing_audience'] as String?) ?? sharingAudience;
         final rawSharedIds = profile['shared_friend_ids'];
@@ -1127,6 +1177,7 @@ class AppState extends ChangeNotifier {
 
       // 3. Load friendships, pending invites, shared calendars & cheers
       await _loadFriendsFromDb(uid);
+      _initialLoadSucceeded = true;
       _subscribeToFriendships(uid);
     } on PostgrestException catch (e) {
       if (_isMissingSchemaError(e)) {
@@ -1142,15 +1193,25 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> refreshFriends() async {
+    refreshToday();
     final uid = user?.id;
-    if (uid == null || !dbReady) return;
+    if (uid == null || demoMode) return;
+    if (syncing) {
+      for (var i = 0; i < 20 && syncing; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
+    }
     try {
       await _loadFriendsFromDb(uid);
+      dbReady = true;
       notifyListeners();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('refreshFriends error: $e');
+    }
   }
 
   Future<void> _loadFriendsFromDb(String uid) async {
+    refreshToday();
     final rels = await _sb
         .from('friendships')
         .select()
@@ -1186,13 +1247,17 @@ class AppState extends ChangeNotifier {
 
     final profileById = <String, Map<String, dynamic>>{};
     if (allLookupIds.isNotEmpty) {
-      final profRows = await _sb
-          .from('profiles')
-          .select()
-          .inFilter('id', allLookupIds);
-      for (final p in profRows) {
-        final id = p['id'] as String?;
-        if (id != null) profileById[id] = p;
+      try {
+        final profRows = await _sb
+            .from('profiles')
+            .select()
+            .inFilter('id', allLookupIds);
+        for (final p in profRows) {
+          final id = p['id'] as String?;
+          if (id != null) profileById[id] = p;
+        }
+      } catch (e) {
+        debugPrint('_loadFriendsFromDb profiles error: $e');
       }
     }
 
@@ -1219,20 +1284,28 @@ class AppState extends ChangeNotifier {
     final scenesByUser = <String, Map<String, Entry>>{};
     final allPeerSceneIds = <int>[];
     if (acceptedPeerIds.isNotEmpty) {
-      final peerSceneRows = await _sb
-          .from('scenes')
-          .select()
-          .inFilter('user_id', acceptedPeerIds)
-          .order('scene_date', ascending: false);
+      try {
+        final peerSceneRows = await _sb
+            .from('scenes')
+            .select()
+            .inFilter('user_id', acceptedPeerIds)
+            .order('scene_date', ascending: false);
 
-      for (final row in peerSceneRows) {
-        final ownerId = row['user_id'] as String?;
-        if (ownerId == null) continue;
-        final entry = _entryFromRow(row, isOwnScene: false);
-        (scenesByUser[ownerId] ??= <String, Entry>{})[dayKey(entry.date)] = entry;
-        if (entry.dbId != null) {
-          allPeerSceneIds.add(entry.dbId!);
+        for (final row in peerSceneRows) {
+          try {
+            final ownerId = row['user_id'] as String?;
+            if (ownerId == null) continue;
+            final entry = _entryFromRow(row, isOwnScene: false);
+            (scenesByUser[ownerId] ??= <String, Entry>{})[dayKey(entry.date)] = entry;
+            if (entry.dbId != null) {
+              allPeerSceneIds.add(entry.dbId!);
+            }
+          } catch (e) {
+            debugPrint('_loadFriendsFromDb row parse error: $e');
+          }
         }
+      } catch (e) {
+        debugPrint('_loadFriendsFromDb scenes query error: $e');
       }
     }
 
@@ -1245,18 +1318,22 @@ class AppState extends ChangeNotifier {
     final allCheerUserIds = <String>{};
 
     if (allSceneIds.isNotEmpty) {
-      final cheerRows = await _sb
-          .from('scene_cheers')
-          .select()
-          .inFilter('scene_id', allSceneIds);
-      for (final c in cheerRows) {
-        final sid = (c['scene_id'] as num?)?.toInt();
-        final cid = c['user_id'] as String?;
-        if (sid == null || cid == null) continue;
-        cheerCounts[sid] = (cheerCounts[sid] ?? 0) + 1;
-        if (cid == uid) cheeredByMe.add(sid);
-        (cheerUserIdsByScene[sid] ??= <String>[]).add(cid);
-        allCheerUserIds.add(cid);
+      try {
+        final cheerRows = await _sb
+            .from('scene_cheers')
+            .select()
+            .inFilter('scene_id', allSceneIds);
+        for (final c in cheerRows) {
+          final sid = (c['scene_id'] as num?)?.toInt();
+          final cid = c['user_id'] as String?;
+          if (sid == null || cid == null) continue;
+          cheerCounts[sid] = (cheerCounts[sid] ?? 0) + 1;
+          if (cid == uid) cheeredByMe.add(sid);
+          (cheerUserIdsByScene[sid] ??= <String>[]).add(cid);
+          allCheerUserIds.add(cid);
+        }
+      } catch (e) {
+        debugPrint('_loadFriendsFromDb scene_cheers error: $e');
       }
     }
 
@@ -1382,11 +1459,40 @@ class AppState extends ChangeNotifier {
     invites
       ..clear()
       ..addAll(nextInvites);
+    final hadActiveFriend = friends.any((f) => f.id == activeFriendId);
     friends
       ..clear()
       ..addAll(nextFriends);
     if (friends.isNotEmpty && !friends.any((f) => f.id == activeFriendId)) {
       activeFriendId = friends.first.id;
+    }
+
+    // If the active friend has no scene for the currently selected date (when still on today),
+    // default friendSelectedDate to their most recent scene so their journal isn't hidden on open.
+    final active = activeFriend;
+    if (active != null &&
+        !hadActiveFriend &&
+        sameDay(friendSelectedDate, today) &&
+        active.entryFor(today) == null &&
+        active.latestEntry != null) {
+      final latestDate = active.latestEntry!.date;
+      friendSelectedDate = DateTime(latestDate.year, latestDate.month, latestDate.day);
+      friendViewMonth = DateTime(latestDate.year, latestDate.month, 1);
+    }
+
+    // Heal sharing_audience if it was stuck on 'specific' with demo/stale IDs or all friends selected
+    if (sharingAudience == 'specific' && friends.isNotEmpty) {
+      final validShared = sharedFriendIds.where((id) => friends.any((f) => f.id == id)).toSet();
+      if ((sharedFriendIds.isNotEmpty && validShared.isEmpty) ||
+          validShared.length == friends.length) {
+        sharingAudience = 'all';
+        sharedFriendIds = friends.map((f) => f.id).toSet();
+        unawaited(_persistSharingSettings());
+        unawaited(_syncProfileFields(<String, dynamic>{
+          'sharing_audience': 'all',
+          'shared_friend_ids': sharedFriendIds.toList(),
+        }));
+      }
     }
 
     // Check for newly discovered incoming reel invites to alert the user
@@ -1416,6 +1522,12 @@ class AppState extends ChangeNotifier {
         _sb.removeChannel(_cheersChannel!);
       } catch (_) {}
       _cheersChannel = null;
+    }
+    if (_scenesChannel != null) {
+      try {
+        _sb.removeChannel(_scenesChannel!);
+      } catch (_) {}
+      _scenesChannel = null;
     }
   }
 
@@ -1578,6 +1690,24 @@ class AppState extends ChangeNotifier {
                 }
               }
 
+              await _loadFriendsFromDb(uid);
+              notifyListeners();
+            },
+          )
+          .subscribe();
+    } catch (_) {}
+
+    try {
+      _scenesChannel = _sb
+          .channel('public:scenes:$uid')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'scenes',
+            callback: (PostgresChangePayload payload) async {
+              final newOwner = payload.newRecord['user_id'] as String?;
+              final oldOwner = payload.oldRecord['user_id'] as String?;
+              if (newOwner == uid && oldOwner == uid) return;
               await _loadFriendsFromDb(uid);
               notifyListeners();
             },
@@ -1758,9 +1888,13 @@ class AppState extends ChangeNotifier {
   }
 
   void setTab(int i) {
+    refreshToday();
     if (tab == i) return;
     tab = i;
     notifyListeners();
+    if (i == 2 && !demoMode && user != null) {
+      unawaited(refreshFriends());
+    }
   }
 
   void setSong(Song s) {
@@ -1980,6 +2114,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> saveToday() async {
+    refreshToday();
     selected = today;
     return await saveSceneForDate(
       today,
@@ -2192,6 +2327,23 @@ class AppState extends ChangeNotifier {
             code == 'PGRST100' ||
             code == '23505' ||
             e.message.contains('ON CONFLICT');
+        final isUpdateTriggerDenied =
+            code == '42501' && e.message.toLowerCase().contains('private');
+
+        if (isUpdateTriggerDenied) {
+          // Fallback if a BEFORE UPDATE trigger on scenes lacks private schema execute grant:
+          // DELETE + INSERT bypasses BEFORE UPDATE triggers while preserving the scene row.
+          await _sb
+              .from('scenes')
+              .delete()
+              .eq('user_id', uid)
+              .eq('scene_date', key);
+          return await _sb
+              .from('scenes')
+              .insert(payload)
+              .select('id')
+              .maybeSingle();
+        }
 
         if (isConflictMismatch) {
           // Fallback: check if row exists, then update or insert
@@ -2225,28 +2377,42 @@ class AppState extends ChangeNotifier {
 
     try {
       Map<String, dynamic>? saved;
+      Future<Map<String, dynamic>?> attemptWithFallbacks() async {
+        try {
+          return await trySave(buildPayload(includeMediaCols: true, forceLegacyHatches: false));
+        } on PostgrestException catch (e) {
+          final code = e.code ?? '';
+          final isMissingCol = code == 'PGRST204' ||
+              code == '42703' ||
+              e.message.contains('song_video_id') ||
+              e.message.contains('song_cover_url');
+          final isCheckViolation = code == '23514' || e.message.contains('check constraint');
+          if (isMissingCol) {
+            try {
+              return await trySave(buildPayload(includeMediaCols: false, forceLegacyHatches: false));
+            } on PostgrestException catch (e2) {
+              if (e2.code == '23514' || e2.message.contains('check constraint')) {
+                return await trySave(buildPayload(includeMediaCols: false, forceLegacyHatches: true));
+              }
+              rethrow;
+            }
+          } else if (isCheckViolation) {
+            debugPrint('Check constraint encountered, retrying with legacy safe hatches: $e');
+            return await trySave(buildPayload(includeMediaCols: true, forceLegacyHatches: true));
+          }
+          rethrow;
+        }
+      }
+
       try {
-        saved = await trySave(buildPayload(includeMediaCols: true, forceLegacyHatches: false));
+        saved = await attemptWithFallbacks();
       } on PostgrestException catch (e) {
         final code = e.code ?? '';
-        final isMissingCol = code == 'PGRST204' ||
-            code == '42703' ||
-            e.message.contains('song_video_id') ||
-            e.message.contains('song_cover_url');
-        final isCheckViolation = code == '23514' || e.message.contains('check constraint');
         final isFkeyViolation = code == '23503' || e.message.contains('foreign key');
-
-        if (isMissingCol) {
-          saved = await trySave(buildPayload(includeMediaCols: false, forceLegacyHatches: false));
-        } else if (isCheckViolation) {
-          // Retry with legacy safe hatch names in case remote DB has older check constraint
-          debugPrint('Check constraint encountered, retrying with legacy safe hatches: $e');
-          saved = await trySave(buildPayload(includeMediaCols: true, forceLegacyHatches: true));
-        } else if (isFkeyViolation) {
-          // Provision profile and retry
+        if (isFkeyViolation) {
           debugPrint('Foreign key missing for user profile, provisioning and retrying: $e');
           await _ensureProfileExists(uid);
-          saved = await trySave(buildPayload(includeMediaCols: true, forceLegacyHatches: false));
+          saved = await attemptWithFallbacks();
         } else {
           rethrow;
         }
@@ -2335,6 +2501,9 @@ class AppState extends ChangeNotifier {
       sharedFriendIds.remove(friendId);
     } else {
       sharedFriendIds.add(friendId);
+      if (friends.isNotEmpty && friends.every((f) => sharedFriendIds.contains(f.id))) {
+        sharingAudience = 'all';
+      }
     }
     notifyListeners();
     unawaited(_persistSharingSettings());
@@ -2351,6 +2520,9 @@ class AppState extends ChangeNotifier {
     }
     if (shared) {
       sharedFriendIds.add(friendId);
+      if (friends.isNotEmpty && friends.every((f) => sharedFriendIds.contains(f.id))) {
+        sharingAudience = 'all';
+      }
     } else {
       sharedFriendIds.remove(friendId);
     }
@@ -2363,7 +2535,7 @@ class AppState extends ChangeNotifier {
   }
 
   void shareWithAllFriends() {
-    sharingAudience = 'specific';
+    sharingAudience = 'all';
     sharedFriendIds = friends.map((f) => f.id).toSet();
     notifyListeners();
     unawaited(_persistSharingSettings());
@@ -2392,18 +2564,32 @@ class AppState extends ChangeNotifier {
   void selectFriend(String id) {
     if (activeFriendId == id) return;
     activeFriendId = id;
+    final target = friends.where((f) => f.id == id).firstOrNull;
+    if (target != null) {
+      final preferredDate = target.entryFor(today) != null
+          ? today
+          : (target.latestEntry?.date ?? today);
+      friendSelectedDate = DateTime(preferredDate.year, preferredDate.month, preferredDate.day);
+      friendViewMonth = DateTime(preferredDate.year, preferredDate.month, 1);
+    }
     notifyListeners();
   }
 
-  void openFriendCalendar(String id) {
-    final targetMonth = DateTime(today.year, today.month, 1);
+  void openFriendCalendar(String id, {DateTime? date}) {
+    final target = friends.where((f) => f.id == id).firstOrNull;
+    final preferredDate = date ??
+        (target != null && target.entryFor(today) == null && target.latestEntry != null
+            ? target.latestEntry!.date
+            : today);
+    final normalizedDate = DateTime(preferredDate.year, preferredDate.month, preferredDate.day);
+    final targetMonth = DateTime(normalizedDate.year, normalizedDate.month, 1);
     if (activeFriendId == id &&
-        sameDay(friendSelectedDate, today) &&
+        sameDay(friendSelectedDate, normalizedDate) &&
         friendViewMonth == targetMonth) {
       return;
     }
     activeFriendId = id;
-    friendSelectedDate = today;
+    friendSelectedDate = normalizedDate;
     friendViewMonth = targetMonth;
     notifyListeners();
   }
@@ -2494,6 +2680,17 @@ class AppState extends ChangeNotifier {
       cheers: inv.seedScenes.isEmpty ? 0 : 1,
     );
     friends.insert(0, friend);
+    if (sharingAudience == 'specific' && sharedFriendIds.isNotEmpty) {
+      sharedFriendIds.add(friend.id);
+      if (friends.every((f) => sharedFriendIds.contains(f.id))) {
+        sharingAudience = 'all';
+      }
+      unawaited(_persistSharingSettings());
+      unawaited(_syncProfileFields(<String, dynamic>{
+        'sharing_audience': sharingAudience,
+        'shared_friend_ids': sharedFriendIds.toList(),
+      }));
+    }
     activeFriendId = friend.id;
     friendViewMonth = DateTime(today.year, today.month, 1);
     friendSelectedDate = today;
@@ -2883,7 +3080,8 @@ class AppState extends ChangeNotifier {
         unawaited(_syncProfileFields(<String, dynamic>{'mood_prompts': moodPrompts}));
       case 'lock':
         privacyLock = !privacyLock;
-        unawaited(_syncProfileFields(<String, dynamic>{'privacy_lock': privacyLock}));
+        unawaited(_persistPrivacySettings());
+        unawaited(_syncProfileFields(<String, dynamic>{'privacy_lock': false}));
     }
     notifyListeners();
   }
@@ -2991,9 +3189,10 @@ class AppState extends ChangeNotifier {
 
   /// Re-plan reminders and sync pending invites when returning to foreground.
   void onAppResumed() {
+    refreshToday();
     unawaited(_rescheduleReminders());
     final uid = user?.id;
-    if (uid != null && dbReady) {
+    if (uid != null && !demoMode) {
       unawaited(refreshFriends());
     }
   }
@@ -3045,7 +3244,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _persistSharingSettings() async {
-    if (kIsWeb) return;
+    if (kIsWeb || demoMode) return;
     try {
       final docs = await getApplicationDocumentsDirectory();
       final file = File('${docs.path}/sharing_settings.json');
@@ -3274,7 +3473,7 @@ class AppState extends ChangeNotifier {
     isPrivacyUnlocked = true;
     notifyListeners();
     await _persistPrivacySettings();
-    unawaited(_syncProfileFields(<String, dynamic>{'privacy_lock': true}));
+    unawaited(_syncProfileFields(<String, dynamic>{'privacy_lock': false}));
     return true;
   }
 

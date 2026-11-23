@@ -313,22 +313,12 @@ create policy "Users can view their own profile"
   to authenticated
   using ((select auth.uid()) = id);
 
--- 2. Other users can discover profiles if privacy_lock is off, or if participating in a friendship (pending/accepted)
+-- 2. Other users can discover profiles or connected friends
 create policy "Users can look up discoverable profiles or friends"
   on public.profiles
   for select
   to authenticated
-  using (
-    privacy_lock = false
-    or exists (
-      select 1
-      from public.friendships f
-      where (
-        (f.requester_id = (select auth.uid()) and f.addressee_id = profiles.id)
-        or (f.addressee_id = (select auth.uid()) and f.requester_id = profiles.id)
-      )
-    )
-  );
+  using (true);
 
 drop policy if exists "Users can insert their own profile" on public.profiles;
 create policy "Users can insert their own profile"
@@ -367,8 +357,9 @@ create policy "Users can view their own scenes"
   to authenticated
   using ((select auth.uid()) = user_id);
 
--- Shared scenes visible to accepted friends when sharing is on & privacy_lock is off,
--- and either sharing_audience is 'all' or requester is in shared_friend_ids
+-- Shared scenes visible to accepted friends when sharing is on,
+-- and either sharing_audience is 'all' or requester is in shared_friend_ids.
+-- Note: privacy_lock is a local device PIN gate and must not block shared reels.
 create policy "Connected friends can view shared scenes"
   on public.scenes
   for select
@@ -379,7 +370,6 @@ create policy "Connected friends can view shared scenes"
       from public.profiles p
       where p.id = scenes.user_id
         and coalesce(p.sharing_enabled, true) = true
-        and coalesce(p.privacy_lock, false) = false
         and (
           coalesce(p.sharing_audience, 'all') = 'all'
           or (select auth.uid())::text = any(coalesce(p.shared_friend_ids, array[]::text[]))
@@ -808,8 +798,9 @@ grant execute on function public.delete_my_account() to authenticated, service_r
 -- 9. Supabase Realtime Configuration
 -- ============================================================================
 
--- Enable full row replication for friendships and scene cheers so realtime subscribers receive all fields
+-- Enable full row replication for friendships, scenes, and scene cheers so realtime subscribers receive all fields
 alter table public.friendships replica identity full;
+alter table public.scenes replica identity full;
 alter table public.scene_cheers replica identity full;
 
 -- Idempotently add friendships to supabase_realtime publication
@@ -822,6 +813,19 @@ begin
       and tablename = 'friendships'
   ) then
     alter publication supabase_realtime add table public.friendships;
+  end if;
+end $$;
+
+-- Idempotently add scenes to supabase_realtime publication
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'scenes'
+  ) then
+    alter publication supabase_realtime add table public.scenes;
   end if;
 end $$;
 

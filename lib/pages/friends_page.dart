@@ -53,8 +53,8 @@ class _FriendsPageState extends State<FriendsPage> {
     app.shiftFriendMonth(d);
   }
 
-  void _jumpToFriendCalendar(Friend f) {
-    app.openFriendCalendar(f.id);
+  void _jumpToFriendCalendar(Friend f, {DateTime? date}) {
+    app.openFriendCalendar(f.id, date: date);
     final ctx = _calendarKey.currentContext;
     if (ctx != null) {
       Scrollable.ensureVisible(
@@ -721,6 +721,8 @@ class _FriendMoodCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final todayScene = friend.entryFor(app.today);
+    final displayScene = todayScene ?? friend.latestEntry;
+    final isPastScene = todayScene == null && displayScene != null;
     final streak = friend.streakFrom(app.today);
 
     return Padding(
@@ -771,23 +773,46 @@ class _FriendMoodCard extends StatelessWidget {
             else
               const Note('quiet today', size: 14),
           ]),
-          if (todayScene != null) ...[
+          if (displayScene != null) ...[
             const SizedBox(height: 9),
+            if (isPastScene) ...[
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Text('latest scene · ${dayLabel(displayScene.date)}', style: T.note(13)),
+                  SketchBox(
+                    shadow: false,
+                    fill: Ink.bg,
+                    jitter: 1.1,
+                    strokeWidth: 1.1,
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      HatchSwatch(displayScene.mood.hatch, size: 13, circle: true, gap: 2.4),
+                      const SizedBox(width: 4),
+                      Text(displayScene.mood.name, style: T.body(11)),
+                    ]),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+            ],
             Row(children: [
-              SongArtBox(song: todayScene.song, size: 32),
+              SongArtBox(song: displayScene.song, size: 32),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '${todayScene.song.title} · ${todayScene.song.artist}',
+                  '${displayScene.song.title} · ${displayScene.song.artist}',
                   style: T.body(14, c: Ink.ink),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
-              SongPlayButton(song: todayScene.song, size: 28, seed: seed + 3),
+              SongPlayButton(song: displayScene.song, size: 28, seed: seed + 3),
             ]),
             const SizedBox(height: 4),
-            Text('“${todayScene.note}”', style: T.note(16, c: Ink.ink)),
+            Text('“${displayScene.note}”', style: T.note(16, c: Ink.ink)),
           ],
           const SizedBox(height: 8),
           SizedBox(
@@ -1112,8 +1137,20 @@ class _SharedSceneDetail extends StatelessWidget {
                     child: Column(children: [
                       Note(dayLabel(date), size: 15),
                       const SizedBox(height: 4),
-                      Text('NO SCENE FROM ${friend.name.toUpperCase()}', style: T.head(17)),
-                      const Note('nothing filmed on their reel for this day.', size: 15),
+                      if (!friend.sharingEnabled) ...[
+                        Text('MOOD SHARING PAUSED', style: T.head(17)),
+                        Note('${friend.name} currently has mood & calendar sharing turned off.', size: 15, align: TextAlign.center),
+                      ] else ...[
+                        Text('NO SCENE FROM ${friend.name.toUpperCase()}', style: T.head(17)),
+                        const Note('nothing filmed on their reel for this day.', size: 15),
+                        if (friend.latestEntry != null) ...[
+                          const SizedBox(height: 10),
+                          SketchTextButton(
+                            'view latest scene (${dayLabel(friend.latestEntry!.date)}) →',
+                            onTap: () => app.openFriendCalendar(friend.id, date: friend.latestEntry!.date),
+                          ),
+                        ],
+                      ],
                     ]),
                   ),
                 )

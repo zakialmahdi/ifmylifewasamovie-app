@@ -757,4 +757,42 @@ void main() {
       expect(app.viewMonth, DateTime(app.today.year, app.today.month, 1));
     }, createHttpClient: (_) => _StubHttpClient());
   });
+
+  testWidgets('FriendsPage displays latest scene when friend is quiet today and heals sharingAudience', (tester) async {
+    await HttpOverrides.runZoned(() async {
+      app.enterDemoMode();
+      addTearDown(() => app.demoMode = false);
+
+      tester.view.physicalSize = const Size(390, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      // Remove today's entry from jules so jules is "quiet today" but has yesterday's scene
+      final jules = app.friends.firstWhere((f) => f.id == 'jules');
+      jules.entries.remove(dayKey(app.today));
+      expect(jules.entryFor(app.today), isNull);
+      expect(jules.latestEntry, isNotNull);
+
+      // Selecting jules should auto-select jules's latest scene date on the shared calendar
+      app.selectFriend('theo');
+      app.selectFriend('jules');
+      expect(app.friendSelectedDate, jules.latestEntry!.date);
+
+      await tester.pumpWidget(const MaterialApp(home: Scaffold(body: FriendsPage())));
+      await tester.pumpAndSettle();
+
+      // Verify jules's latest scene is displayed even though today is unfilmed
+      expect(find.textContaining('latest scene ·'), findsOneWidget);
+      expect(find.textContaining(jules.latestEntry!.note), findsAtLeastNWidgets(1));
+
+      // Verify toggling friend sharing off and back on heals sharingAudience back to 'all'
+      expect(app.sharingAudience, 'all');
+      app.toggleFriendSharing('jules');
+      expect(app.sharingAudience, 'specific');
+      expect(app.isSharedWith('jules'), isFalse);
+      app.toggleFriendSharing('jules');
+      expect(app.isSharedWith('jules'), isTrue);
+      expect(app.sharingAudience, 'all');
+    }, createHttpClient: (_) => _StubHttpClient());
+  });
 }
