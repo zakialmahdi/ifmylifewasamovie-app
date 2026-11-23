@@ -1440,7 +1440,7 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: 10),
             r(const SectionTitle('The rules')),
             r(_ruleRow('Daily reminder', 'pick today\'s song at ${app.reminderTimeLabel}', app.dailyReminder, 'reminder', 1)),
-            if (app.dailyReminder) ...[
+            if (app.dailyReminder)
               r(_navRow(
                 Icons.alarm_outlined,
                 'Reminder time',
@@ -1448,23 +1448,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 78,
                 () => _pickReminderTime(context),
               )),
-              if (!kIsWeb)
-                r(_navRow(
-                  Icons.notifications_active_outlined,
-                  'Test notification',
-                  'send a test reminder to this device right now',
-                  81,
-                  () async {
-                    final ok = await app.sendTestReminder();
-                    if (!context.mounted) return;
-                    if (ok) {
-                      showNote(context, 'test notification sent ✓ check your phone banner');
-                    } else {
-                      _showBlockedNotificationsDialog(context);
-                    }
-                  },
-                )),
-            ],
             r(_ruleRow('Mood prompts', 'little questions before you save', app.moodPrompts, 'prompts', 2)),
             if (!kIsWeb) ...[
               r(_ruleRow('Privacy lock', 'keep the diary to yourself', app.privacyLock, 'lock', 3)),
@@ -1598,6 +1581,21 @@ class _SettingsPageState extends State<SettingsPage> {
             if (app.demoMode) ...[
               const SizedBox(height: 14),
               r(const SectionTitle('Developer')),
+              r(_navRow(
+                Icons.notifications_active_outlined,
+                'Preview test notification',
+                'demo: send a test notification to this device right now',
+                87,
+                () async {
+                  final ok = await app.sendTestReminder();
+                  if (!context.mounted) return;
+                  if (ok) {
+                    showNote(context, 'test notification sent ✓ check your phone banner');
+                  } else {
+                    _showBlockedNotificationsDialog(context);
+                  }
+                },
+              )),
               r(_navRow(
                 Icons.system_update_outlined,
                 'Preview update popup',
