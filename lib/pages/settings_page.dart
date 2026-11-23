@@ -1548,7 +1548,10 @@ class _SettingsPageState extends State<SettingsPage> {
               82,
               () => _about(context),
             )),
-            if (app.demoMode)
+
+            if (app.demoMode) ...[
+              const SizedBox(height: 14),
+              r(const SectionTitle('Developer')),
               r(_navRow(
                 Icons.system_update_outlined,
                 'Preview update popup',
@@ -1556,6 +1559,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 84,
                 () => showAppUpdatePreviewDialog(context),
               )),
+              r(_navRow(
+                Icons.add_to_home_screen_outlined,
+                'Preview add to home screen popup',
+                'demo: see how the smartphone home screen prompt looks',
+                86,
+                () => showPwaInstallDialog(context),
+              )),
+            ],
 
             const SizedBox(height: 14),
             r(const SectionTitle('Session & danger zone')),

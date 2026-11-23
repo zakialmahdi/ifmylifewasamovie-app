@@ -291,6 +291,20 @@ void main() {
 
       expect(find.text('NEW UPDATE READY'), findsNothing);
       expect(buttonFinder, findsOneWidget);
+
+      // Verify Developer section also includes 'Preview add to home screen popup'
+      final pwaButtonFinder = find.text('Preview add to home screen popup');
+      await tester.scrollUntilVisible(pwaButtonFinder, 300, scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
+      expect(pwaButtonFinder, findsOneWidget);
+
+      await tester.tap(pwaButtonFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('ADD TO HOME SCREEN?'), findsOneWidget);
+      await tester.tap(find.text('LATER'));
+      await tester.pumpAndSettle();
+      expect(find.text('ADD TO HOME SCREEN?'), findsNothing);
     });
 
     testWidgets('hides Preview update popup button outside demo mode', (tester) async {
@@ -315,6 +329,7 @@ void main() {
 
       expect(find.text('About this app'), findsOneWidget);
       expect(find.text('Preview update popup'), findsNothing);
+      expect(find.text('Preview add to home screen popup'), findsNothing);
     });
   });
 
