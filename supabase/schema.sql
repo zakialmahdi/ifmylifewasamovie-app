@@ -360,6 +360,10 @@ create policy "Users can view their own scenes"
 -- Shared scenes visible to accepted friends when sharing is on,
 -- and either sharing_audience is 'all' or requester is in shared_friend_ids.
 -- Note: privacy_lock is a local device PIN gate and must not block shared reels.
+update public.profiles
+set privacy_lock = false
+where privacy_lock = true;
+
 create policy "Connected friends can view shared scenes"
   on public.scenes
   for select
