@@ -1,10 +1,11 @@
 {
+    "id": "/",
     "name": "If My Life A Movie",
     "short_name": "If My Life A Movie",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
+    "background_color": "#F6F1E7",
+    "theme_color": "#1C1A17",
     "description": "A song-based mood journal with a conceptual sketch UI.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,

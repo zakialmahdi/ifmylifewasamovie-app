@@ -6,7 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:if_my_life_was_a_movie/main.dart';
 import 'package:if_my_life_was_a_movie/pages/settings_page.dart';
 import 'package:if_my_life_was_a_movie/services/app_version_service.dart';
+import 'package:if_my_life_was_a_movie/services/pwa_install/pwa_install_service.dart';
 import 'package:if_my_life_was_a_movie/state.dart';
+import 'package:if_my_life_was_a_movie/widgets/pwa_install_dialog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -314,4 +317,94 @@ void main() {
       expect(find.text('Preview update popup'), findsNothing);
     });
   });
+
+  group('PWA Add to Home Screen prompt', () {
+    test('only shows first-open prompt on smartphones and suppresses on laptops or after seen', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+
+      // 1. Laptop / Desktop browser (isSmartphone = false) -> never shows popup
+      final laptopService = _FakePwaInstallService(
+        isWebSupported: true,
+        isSmartphone: false,
+        isStandalone: false,
+      );
+      expect(await laptopService.shouldShowFirstOpenPrompt(), isFalse);
+
+      // 2. Already installed to Home Screen (isStandalone = true) -> never shows popup
+      final installedPhoneService = _FakePwaInstallService(
+        isWebSupported: true,
+        isSmartphone: true,
+        isStandalone: true,
+      );
+      expect(await installedPhoneService.shouldShowFirstOpenPrompt(), isFalse);
+
+      // 3. Smartphone browser on 1st open -> shows popup once, then remembers
+      final phoneService = _FakePwaInstallService(
+        isWebSupported: true,
+        isSmartphone: true,
+        isStandalone: false,
+      );
+      expect(await phoneService.shouldShowFirstOpenPrompt(), isTrue);
+
+      await phoneService.markPromptSeen();
+      expect(await phoneService.shouldShowFirstOpenPrompt(), isFalse);
+    });
+
+    testWidgets('PwaInstallDialogOverlay renders prompt, shows manual steps, and dismisses', (tester) async {
+      var dismissed = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: [
+                PwaInstallDialogOverlay(
+                  onDismiss: () => dismissed = true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('ADD TO HOME SCREEN?'), findsOneWidget);
+      expect(find.text('LATER'), findsOneWidget);
+      expect(find.text('ADD TO HOME SCREEN →'), findsOneWidget);
+
+      await tester.tap(find.text('ADD TO HOME SCREEN →'));
+      await tester.pumpAndSettle();
+
+      // Stub returns 'manual', revealing instructions and 'GOT IT ✓' button
+      expect(find.textContaining('HOW TO ADD'), findsOneWidget);
+      expect(find.text('GOT IT ✓'), findsOneWidget);
+
+      await tester.tap(find.text('GOT IT ✓'));
+      await tester.pumpAndSettle();
+      expect(dismissed, isTrue);
+    });
+  });
+}
+
+class _FakePwaInstallService extends PwaInstallService {
+  @override
+  final bool isWebSupported;
+  @override
+  final bool isSmartphone;
+  @override
+  final bool isStandalone;
+
+  @override
+  bool get isIos => false;
+
+  @override
+  bool get canPromptNatively => false;
+
+  _FakePwaInstallService({
+    required this.isWebSupported,
+    required this.isSmartphone,
+    required this.isStandalone,
+  });
+
+  @override
+  Future<String> triggerInstall() async => 'manual';
 }

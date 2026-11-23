@@ -7,10 +7,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'router.dart';
 import 'services/app_version_service.dart';
+import 'services/pwa_install/pwa_install_service.dart';
 import 'sketch.dart';
 import 'state.dart';
 import 'widgets/app_update_dialog.dart';
 import 'widgets/privacy_lock_widgets.dart';
+import 'widgets/pwa_install_dialog.dart';
 import 'widgets/reminder_banner.dart';
 
 Future<void> main() async {
@@ -88,6 +90,7 @@ class _SplashGateState extends State<SplashGate> with SingleTickerProviderStateM
   bool _done = false;
   AppUpdateInfo? _availableUpdate;
   bool _promptDismissed = false;
+  bool _showPwaInstallPrompt = false;
 
   bool get _showingUpdatePrompt => _availableUpdate != null && !_promptDismissed;
 
@@ -101,12 +104,29 @@ class _SplashGateState extends State<SplashGate> with SingleTickerProviderStateM
     });
     _ctl.forward();
     unawaited(_checkForUpdate());
+    unawaited(_checkPwaInstallPrompt());
 
     // Trigger signature clapper rotation snap at 300ms
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted && !_done) {
         setState(() => _clapTurns = 1.0);
       }
+    });
+  }
+
+  Future<void> _checkPwaInstallPrompt() async {
+    final shouldShow = await PwaInstallService.instance.shouldShowFirstOpenPrompt();
+    if (!mounted || !shouldShow) return;
+    setState(() {
+      _showPwaInstallPrompt = true;
+    });
+  }
+
+  void _dismissPwaInstallPrompt() {
+    unawaited(PwaInstallService.instance.markPromptSeen());
+    if (!mounted) return;
+    setState(() {
+      _showPwaInstallPrompt = false;
     });
   }
 
@@ -145,7 +165,8 @@ class _SplashGateState extends State<SplashGate> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final showPrompt = _showingUpdatePrompt;
-    if (_done && !showPrompt) return widget.child;
+    final showPwaPrompt = _done && !showPrompt && _showPwaInstallPrompt;
+    if (_done && !showPrompt && !showPwaPrompt) return widget.child;
 
     return Stack(
       children: [
@@ -279,6 +300,10 @@ class _SplashGateState extends State<SplashGate> with SingleTickerProviderStateM
             update: _availableUpdate!,
             onLater: _availableUpdate!.forceUpdate ? null : _dismissUpdate,
             urlLauncher: widget.updateLauncher,
+          ),
+        if (showPwaPrompt)
+          PwaInstallDialogOverlay(
+            onDismiss: _dismissPwaInstallPrompt,
           ),
       ],
     );

@@ -5,11 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/app_version_service.dart';
+import '../services/pwa_install/pwa_install_service.dart';
 import '../services/youtube_music_service.dart';
 import '../sketch.dart';
 import '../state.dart';
 import '../widgets/app_update_dialog.dart';
 import '../widgets/privacy_lock_widgets.dart';
+import '../widgets/pwa_install_dialog.dart';
 import '../widgets/suggestion_dialog.dart';
 import '../widgets/youtube_login_sheet.dart';
 
@@ -1484,6 +1486,47 @@ class _SettingsPageState extends State<SettingsPage> {
 
             const SizedBox(height: 14),
             r(const SectionTitle('More')),
+            if (kIsWeb)
+              r(ListenableBuilder(
+                listenable: PwaInstallService.instance,
+                builder: (context, _) {
+                  final svc = PwaInstallService.instance;
+                  final installed = svc.isStandalone;
+                  return _navRow(
+                    installed
+                        ? Icons.check_circle_outline
+                        : Icons.add_to_home_screen_outlined,
+                    installed
+                        ? 'Added to Home Screen ✓'
+                        : 'Add to Home Screen',
+                    installed
+                        ? 'running as a full-screen home screen web app'
+                        : 'install on your phone for quick full-screen access',
+                    85,
+                    () async {
+                      if (svc.isStandalone) {
+                        showNote(context, 'already running from your home screen ✓');
+                        return;
+                      }
+                      if (svc.canPromptNatively) {
+                        final res = await svc.triggerInstall();
+                        if (!context.mounted) return;
+                        if (res == 'accepted' || res == 'installed') {
+                          await svc.markPromptSeen();
+                          if (context.mounted) {
+                            showNote(context, 'added to your home screen ✓');
+                          }
+                          return;
+                        }
+                        if (res == 'dismissed') return;
+                      }
+                      if (context.mounted) {
+                        await showPwaInstallDialog(context);
+                      }
+                    },
+                  );
+                },
+              )),
             r(_navRow(
               Icons.lightbulb_outline,
               'Suggest a feature / feedback',
