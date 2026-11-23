@@ -428,42 +428,117 @@ class YouTubeMusicService extends ChangeNotifier {
     return const <Song>[];
   }
 
+  /// Low-level helper that queries Apple's iTunes Search API.
+  /// On web, routes through Vercel serverless proxy (`/api/itunes-search`) to eliminate
+  /// CORS restrictions and forbidden header errors in WebKit/iOS Safari, with public CORS proxy fallback.
+  Future<List<Song>> _fetchITunesSongsRaw({
+    required String term,
+    required String country,
+    int limit = 25,
+  }) async {
+    final clean = term.trim();
+    if (clean.isEmpty) return const <Song>[];
+
+    final queryParams = <String, String>{
+      'term': clean,
+      'country': country,
+      'media': 'music',
+      'entity': 'song',
+      'limit': '$limit',
+    };
+
+    if (kIsWeb) {
+      // 1. Same-origin Vercel Serverless Function (/api/itunes-search)
+      try {
+        final apiUri = Uri(
+          path: '/api/itunes-search',
+          queryParameters: queryParams,
+        );
+        final response = await _http.get(
+          apiUri,
+          headers: const <String, String>{
+            HttpHeaders.acceptHeader: 'application/json',
+          },
+        ).timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          final parsed = await compute(_parseITunesSongs, response.body);
+          if (parsed.isNotEmpty) return parsed;
+        }
+      } catch (_) {}
+
+      // 2. Public CORS proxy fallback for non-Vercel or local web dev
+      try {
+        final itunesDirect =
+            Uri.https('itunes.apple.com', '/search', queryParams);
+        final proxyUri = Uri.https('api.allorigins.win', '/raw', <String, String>{
+          'url': itunesDirect.toString(),
+        });
+        final response = await _http.get(
+          proxyUri,
+          headers: const <String, String>{
+            HttpHeaders.acceptHeader: 'application/json',
+          },
+        ).timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          final parsed = await compute(_parseITunesSongs, response.body);
+          if (parsed.isNotEmpty) return parsed;
+        }
+      } catch (_) {}
+
+      // 3. Direct browser call without forbidden User-Agent header
+      try {
+        final itunesDirect =
+            Uri.https('itunes.apple.com', '/search', queryParams);
+        final response = await _http.get(
+          itunesDirect,
+          headers: const <String, String>{
+            HttpHeaders.acceptHeader: 'application/json',
+          },
+        ).timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          return await compute(_parseITunesSongs, response.body);
+        }
+      } catch (_) {}
+
+      return const <Song>[];
+    }
+
+    // Native platforms (Android, iOS native, desktop): direct request to iTunes with standard UA
+    try {
+      final itunesDirect =
+          Uri.https('itunes.apple.com', '/search', queryParams);
+      final response = await _http.get(
+        itunesDirect,
+        headers: const <String, String>{
+          HttpHeaders.acceptHeader: 'application/json',
+          HttpHeaders.userAgentHeader:
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        },
+      ).timeout(const Duration(seconds: 6));
+
+      if (response.statusCode == 200) {
+        return await compute(_parseITunesSongs, response.body);
+      }
+    } catch (_) {}
+
+    return const <Song>[];
+  }
+
   /// Queries Apple's free, key-less iTunes Search API for studio-clean track metadata,
   /// 1:1 album artwork, and `previewUrl`s. Defaults to [country] = 'MY'.
   Future<List<Song>> searchITunes(String query, {String country = 'MY'}) async {
     final clean = query.trim();
     if (clean.isEmpty) return const <Song>[];
 
-    final uri = Uri.https('itunes.apple.com', '/search', <String, String>{
-      'term': clean,
-      'country': country,
-      'media': 'music',
-      'entity': 'song',
-      'limit': '25',
-    });
+    final parsed = await _fetchITunesSongsRaw(
+      term: clean,
+      country: country,
+      limit: 25,
+    );
 
-    final response = await _http.get(
-      uri,
-      headers: const <String, String>{
-        HttpHeaders.acceptHeader: 'application/json',
-        HttpHeaders.userAgentHeader:
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      },
-    ).timeout(const Duration(seconds: 6));
-
-    if (response.statusCode == 429) {
-      // Rate limited by iTunes API: return empty to let fallback provider handle it
-      return const <Song>[];
-    }
-
-    if (response.statusCode != 200) {
-      throw HttpException(
-        'iTunes Search API returned status ${response.statusCode}',
-        uri: uri,
-      );
-    }
-
-    final parsed = await compute(_parseITunesSongs, response.body);
     var changed = false;
     var stateChanged = false;
     for (final s in parsed) {
@@ -497,32 +572,69 @@ class YouTubeMusicService extends ChangeNotifier {
     final clean = query.trim();
     if (clean.isEmpty) return const <Song>[];
 
-    final uri = Uri.https('api.deezer.com', '/search', <String, String>{
+    final queryParams = <String, String>{
       'q': clean,
       'limit': '25',
-    });
+    };
 
-    final response = await _http.get(
-      uri,
-      headers: const <String, String>{
-        HttpHeaders.acceptHeader: 'application/json',
-        HttpHeaders.userAgentHeader:
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      },
-    ).timeout(const Duration(seconds: 6));
+    String? responseBody;
 
-    if (response.statusCode == 429) {
-      return const <Song>[];
+    if (kIsWeb) {
+      // 1. Same-origin Vercel Serverless Function (/api/deezer-search)
+      try {
+        final apiUri = Uri(
+          path: '/api/deezer-search',
+          queryParameters: queryParams,
+        );
+        final response = await _http.get(
+          apiUri,
+          headers: const <String, String>{
+            HttpHeaders.acceptHeader: 'application/json',
+          },
+        ).timeout(const Duration(seconds: 5));
+        if (response.statusCode == 200) {
+          responseBody = response.body;
+        }
+      } catch (_) {}
+
+      // 2. Public CORS proxy fallback
+      if (responseBody == null) {
+        try {
+          final directUri = Uri.https('api.deezer.com', '/search', queryParams);
+          final proxyUri = Uri.https('api.allorigins.win', '/raw', <String, String>{
+            'url': directUri.toString(),
+          });
+          final response = await _http.get(
+            proxyUri,
+            headers: const <String, String>{
+              HttpHeaders.acceptHeader: 'application/json',
+            },
+          ).timeout(const Duration(seconds: 5));
+          if (response.statusCode == 200) {
+            responseBody = response.body;
+          }
+        } catch (_) {}
+      }
+    } else {
+      try {
+        final uri = Uri.https('api.deezer.com', '/search', queryParams);
+        final response = await _http.get(
+          uri,
+          headers: const <String, String>{
+            HttpHeaders.acceptHeader: 'application/json',
+            HttpHeaders.userAgentHeader:
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          },
+        ).timeout(const Duration(seconds: 6));
+        if (response.statusCode == 200) {
+          responseBody = response.body;
+        }
+      } catch (_) {}
     }
 
-    if (response.statusCode != 200) {
-      throw HttpException(
-        'Deezer Search API returned status ${response.statusCode}',
-        uri: uri,
-      );
-    }
+    if (responseBody == null) return const <Song>[];
 
-    final parsed = await compute(_parseDeezerSongs, response.body);
+    final parsed = await compute(_parseDeezerSongs, responseBody);
     var changed = false;
     var stateChanged = false;
     for (final s in parsed) {
@@ -606,44 +718,20 @@ class YouTubeMusicService extends ChangeNotifier {
 
         // 1. Try iTunes targeting Malaysia storefront (country=MY)
         try {
-          final uri = Uri.https('itunes.apple.com', '/search', <String, String>{
-            'term': '${song.title} ${song.artist}',
-            'country': 'MY',
-            'media': 'music',
-            'entity': 'song',
-            'limit': '5',
-          });
-
-          final response = await _http.get(
-            uri,
-            headers: const <String, String>{
-              HttpHeaders.acceptHeader: 'application/json',
-            },
-          ).timeout(const Duration(seconds: 5));
-
-          if (response.statusCode == 200) {
-            matches = await compute(_parseITunesSongs, response.body);
-          }
+          matches = await _fetchITunesSongsRaw(
+            term: '${song.title} ${song.artist}',
+            country: 'MY',
+            limit: 5,
+          );
         } catch (_) {}
 
         // 2. Fall back to Deezer if iTunes Malaysia returned no matches
         if (matches.isEmpty) {
           try {
-            final deezerUri =
-                Uri.https('api.deezer.com', '/search', <String, String>{
-              'q': '${song.title} ${song.artist}',
-              'limit': '5',
-            });
-
-            final response = await _http.get(
-              deezerUri,
-              headers: const <String, String>{
-                HttpHeaders.acceptHeader: 'application/json',
-              },
-            ).timeout(const Duration(seconds: 5));
-
-            if (response.statusCode == 200) {
-              matches = await compute(_parseDeezerSongs, response.body);
+            final deezerMatches =
+                await searchDeezer('${song.title} ${song.artist}');
+            if (deezerMatches.isNotEmpty) {
+              matches = deezerMatches.take(5).toList();
             }
           } catch (_) {}
         }
@@ -651,25 +739,11 @@ class YouTubeMusicService extends ChangeNotifier {
         // 3. Fall back to iTunes US storefront if still empty
         if (matches.isEmpty) {
           try {
-            final uriUS =
-                Uri.https('itunes.apple.com', '/search', <String, String>{
-              'term': '${song.title} ${song.artist}',
-              'country': 'US',
-              'media': 'music',
-              'entity': 'song',
-              'limit': '5',
-            });
-
-            final response = await _http.get(
-              uriUS,
-              headers: const <String, String>{
-                HttpHeaders.acceptHeader: 'application/json',
-              },
-            ).timeout(const Duration(seconds: 5));
-
-            if (response.statusCode == 200) {
-              matches = await compute(_parseITunesSongs, response.body);
-            }
+            matches = await _fetchITunesSongsRaw(
+              term: '${song.title} ${song.artist}',
+              country: 'US',
+              limit: 5,
+            );
           } catch (_) {}
         }
 
@@ -797,7 +871,7 @@ class YouTubeMusicService extends ChangeNotifier {
       await _player.setAudioSource(
         AudioSource.uri(
           Uri.parse(previewUrl),
-          headers: _browserHeaders,
+          headers: kIsWeb ? null : _browserHeaders,
         ),
       );
       if (token != _activeRequestToken) {
@@ -1381,7 +1455,10 @@ class YouTubeMusicService extends ChangeNotifier {
             onPlaybackSongChanged?.call(currentSong!);
 
             await _player.setAudioSource(
-              AudioSource.uri(Uri.parse(preview), headers: _browserHeaders),
+              AudioSource.uri(
+                Uri.parse(preview),
+                headers: kIsWeb ? null : _browserHeaders,
+              ),
             );
             if (token != _activeRequestToken) return;
             unawaited(_player.play());
