@@ -40,6 +40,10 @@ class _ReminderBannerHostState extends State<ReminderBannerHost>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       app.onAppResumed();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      app.onAppPaused();
     }
   }
 

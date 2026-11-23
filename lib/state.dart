@@ -363,6 +363,21 @@ class AppState extends ChangeNotifier {
   RealtimeChannel? _scenesChannel;
   final Set<int> _notifiedInviteIds = <int>{};
   final Set<String> _notifiedCheerKeys = <String>{};
+  Timer? _friendsPollTimer;
+
+  void _startFriendsPolling() {
+    _friendsPollTimer?.cancel();
+    _friendsPollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (user != null && !demoMode && dbReady) {
+        unawaited(refreshFriends());
+      }
+    });
+  }
+
+  void _stopFriendsPolling() {
+    _friendsPollTimer?.cancel();
+    _friendsPollTimer = null;
+  }
 
   User? user;
   bool demoMode = false;
@@ -617,6 +632,7 @@ class AppState extends ChangeNotifier {
   }
 
   void _clearToLoggedOut() {
+    _stopFriendsPolling();
     _unsubscribeFromFriendships();
     unawaited(musicService.stop());
     unawaited(ReminderService.instance.cancelAll());
@@ -1185,6 +1201,7 @@ class AppState extends ChangeNotifier {
       // 3. Load friendships, pending invites, shared calendars & cheers
       await _loadFriendsFromDb(uid);
       _initialLoadSucceeded = true;
+      _startFriendsPolling();
       _subscribeToFriendships(uid);
     } on PostgrestException catch (e) {
       if (_isMissingSchemaError(e)) {
@@ -1405,19 +1422,46 @@ class AppState extends ChangeNotifier {
       }
     }
 
-    // Register existing cheers on user's own journal scenes without spamming banners on startup.
-    // Live cheers received while the app is running are handled in real-time by _cheersChannel.
+    // Register and notify newly discovered cheers on user's own journal scenes.
     var newlyDiscoveredCheers = false;
     for (final sid in mySceneIds) {
       final userIds = cheerUserIdsByScene[sid] ?? const [];
       final myEntry = _entries.values.where((e) => e.dbId == sid).firstOrNull;
-      if (myEntry == null) continue;
       for (final cid in userIds) {
         if (cid == uid) continue;
         final cheerKey = '${sid}_$cid';
         if (!_notifiedCheerKeys.contains(cheerKey)) {
           _notifiedCheerKeys.add(cheerKey);
           newlyDiscoveredCheers = true;
+
+          // If initial load already completed or user had persisted cheer keys,
+          // notify user of this new cheer immediately.
+          if (_initialLoadSucceeded || _notifiedCheerKeys.length > 1) {
+            String cheererName = 'a co-star';
+            String cheererHandle = '';
+            final friend = friends.where((f) => f.id == cid).firstOrNull;
+            if (friend != null) {
+              cheererName = friend.name;
+              cheererHandle = friend.handle;
+            } else {
+              final prof = profileById[cid];
+              if (prof != null) {
+                cheererName = (prof['display_name'] as String?)?.trim() ?? cheererName;
+                cheererHandle = (prof['handle'] as String?)?.trim() ?? '';
+              }
+            }
+
+            final dateStr = myEntry != null ? dayLabel(myEntry.date) : 'your scene';
+            final handlePart = cheererHandle.isNotEmpty ? ' ($cheererHandle)' : '';
+            inAppReminder.value = '$cheererName$handlePart cheered your scene for $dateStr! 🍿';
+
+            unawaited(ReminderService.instance.showSceneCheerNotification(
+              cheererName: cheererName,
+              cheererHandle: cheererHandle,
+              sceneDate: dateStr,
+              sceneId: sid,
+            ));
+          }
         }
       }
     }
@@ -1508,6 +1552,8 @@ class AppState extends ChangeNotifier {
       if (fId != null && !_notifiedInviteIds.contains(fId)) {
         _notifiedInviteIds.add(fId);
         unawaited(_persistNotifiedInvites());
+        inAppReminder.value =
+            'reel invite: ${inv.name} (${inv.handle}) wants to swap reels!';
         unawaited(ReminderService.instance.showReelInviteNotification(
           inviterName: inv.name,
           inviterHandle: inv.handle,
@@ -1629,7 +1675,10 @@ class AppState extends ChangeNotifier {
               }
             },
           )
-          .subscribe();
+          .subscribe((status, [error]) {
+            debugPrint('Realtime friendships channel status: $status');
+            if (error != null) debugPrint('Realtime friendships error: $error');
+          });
     } catch (_) {}
 
     try {
@@ -1647,21 +1696,25 @@ class AppState extends ChangeNotifier {
 
               if (event == PostgresChangeEvent.insert && sid != null && cheererId != null && cheererId != uid) {
                 var myEntry = _entries.values.where((e) => e.dbId == sid).firstOrNull;
-                if (myEntry == null) {
+                DateTime? sceneDate = myEntry?.date;
+                var isMyScene = myEntry != null;
+                if (!isMyScene) {
                   try {
                     final sRow = await _sb.from('scenes').select('id, user_id, scene_date').eq('id', sid).maybeSingle();
                     if (sRow != null && sRow['user_id'] == uid) {
+                      isMyScene = true;
                       final dateStr = sRow['scene_date'] as String?;
                       if (dateStr != null) {
                         final parts = dateStr.split('-');
                         final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+                        sceneDate = d;
                         myEntry = _entries[dayKey(d)];
                       }
                     }
                   } catch (_) {}
                 }
 
-                if (myEntry != null) {
+                if (isMyScene) {
                   final cheerKey = '${sid}_$cheererId';
                   if (!_notifiedCheerKeys.contains(cheerKey)) {
                     _notifiedCheerKeys.add(cheerKey);
@@ -1683,7 +1736,9 @@ class AppState extends ChangeNotifier {
                       } catch (_) {}
                     }
 
-                    final dateStr = dayLabel(myEntry.date);
+                    final dateStr = sceneDate != null
+                        ? dayLabel(sceneDate)
+                        : (myEntry != null ? dayLabel(myEntry.date) : 'your scene');
                     final handlePart = cheererHandle.isNotEmpty ? ' ($cheererHandle)' : '';
                     inAppReminder.value = '$cheererName$handlePart cheered your scene for $dateStr! 🍿';
 
@@ -1701,7 +1756,10 @@ class AppState extends ChangeNotifier {
               notifyListeners();
             },
           )
-          .subscribe();
+          .subscribe((status, [error]) {
+            debugPrint('Realtime cheers channel status: $status');
+            if (error != null) debugPrint('Realtime cheers error: $error');
+          });
     } catch (_) {}
 
     try {
@@ -1719,7 +1777,10 @@ class AppState extends ChangeNotifier {
               notifyListeners();
             },
           )
-          .subscribe();
+          .subscribe((status, [error]) {
+            debugPrint('Realtime scenes channel status: $status');
+            if (error != null) debugPrint('Realtime scenes error: $error');
+          });
     } catch (_) {}
   }
 
@@ -3209,8 +3270,13 @@ class AppState extends ChangeNotifier {
     unawaited(_rescheduleReminders());
     final uid = user?.id;
     if (uid != null && !demoMode) {
+      _startFriendsPolling();
       unawaited(refreshFriends());
     }
+  }
+
+  void onAppPaused() {
+    _stopFriendsPolling();
   }
 
   /// Posts a notification right now + shows the in-app banner so the user can
@@ -3225,6 +3291,40 @@ class AppState extends ChangeNotifier {
     }
     if (!enabled) return false;
     return ReminderService.instance.showNow(body: msg);
+  }
+
+  /// Posts a test scene cheer notification so developer can verify cheer notifications work.
+  Future<bool> sendTestCheerNotification() async {
+    final dateStr = dayLabel(today);
+    inAppReminder.value = 'maya (@maya) cheered your scene for $dateStr! 🍿';
+    if (!ReminderService.instance.isSupported) return true;
+    var enabled = await ReminderService.instance.notificationsEnabled();
+    if (!enabled) {
+      enabled = await ReminderService.instance.requestPermission();
+    }
+    if (!enabled) return false;
+    return ReminderService.instance.showSceneCheerNotification(
+      cheererName: 'maya',
+      cheererHandle: '@maya',
+      sceneDate: dateStr,
+      sceneId: 999,
+    );
+  }
+
+  /// Posts a test friend request notification so developer can verify friend request notifications work.
+  Future<bool> sendTestInviteNotification() async {
+    inAppReminder.value = 'reel invite: jules (@jules) wants to swap reels!';
+    if (!ReminderService.instance.isSupported) return true;
+    var enabled = await ReminderService.instance.notificationsEnabled();
+    if (!enabled) {
+      enabled = await ReminderService.instance.requestPermission();
+    }
+    if (!enabled) return false;
+    return ReminderService.instance.showReelInviteNotification(
+      inviterName: 'jules',
+      inviterHandle: '@jules',
+      inviteId: 999,
+    );
   }
 
   Future<void> _loadReminderSettings() async {

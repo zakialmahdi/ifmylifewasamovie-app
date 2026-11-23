@@ -21,7 +21,7 @@ class ReminderService {
   static const String _channelName = 'Daily reminder';
 
   static const String _reelChannelId = 'reel_invites';
-  static const String _reelChannelName = 'Reel invites';
+  static const String _reelChannelName = 'Reel invites & cheers';
 
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
@@ -99,7 +99,7 @@ class ReminderService {
             const AndroidNotificationChannel(
               _reelChannelId,
               _reelChannelName,
-              description: 'Notifications when co-stars invite you to swap reels',
+              description: 'Notifications when co-stars invite you or cheer your scenes',
               importance: Importance.max,
               playSound: true,
               enableVibration: true,
@@ -279,7 +279,7 @@ class ReminderService {
     android: AndroidNotificationDetails(
       _reelChannelId,
       _reelChannelName,
-      channelDescription: 'Notifications when co-stars invite you to swap reels',
+      channelDescription: 'Notifications when co-stars invite you or cheer your scenes',
       importance: Importance.max,
       priority: Priority.high,
       category: AndroidNotificationCategory.social,
@@ -315,9 +315,7 @@ class ReminderService {
     await init();
     if (!_initialized) return false;
     try {
-      final notifId = inviteId != null
-          ? (_baseId + 1000 + (inviteId % 5000))
-          : (_baseId + 1000);
+      final notifId = _baseId + 1000 + ('${inviteId}_$inviterName'.hashCode.abs() % 4000);
       await _plugin.show(
         id: notifId,
         title: 'IF MY LIFE WAS A MOVIE…',
@@ -366,9 +364,7 @@ class ReminderService {
     await init();
     if (!_initialized) return false;
     try {
-      final notifId = sceneId != null
-          ? (_baseId + 3000 + (sceneId % 5000))
-          : (_baseId + 3000);
+      final notifId = _baseId + 3000 + ('${sceneId}_$cheererName'.hashCode.abs() % 4000);
       final handleStr = cheererHandle.isNotEmpty ? ' ($cheererHandle)' : '';
       await _plugin.show(
         id: notifId,

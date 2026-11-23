@@ -1583,14 +1583,44 @@ class _SettingsPageState extends State<SettingsPage> {
               r(const SectionTitle('Developer')),
               r(_navRow(
                 Icons.notifications_active_outlined,
-                'Preview test notification',
-                'demo: send a test notification to this device right now',
+                'Preview daily reminder notification',
+                'demo: send a test reminder to this device right now',
                 87,
                 () async {
                   final ok = await app.sendTestReminder();
                   if (!context.mounted) return;
                   if (ok) {
-                    showNote(context, 'test notification sent ✓ check your phone banner');
+                    showNote(context, 'daily reminder test sent ✓ check your phone banner');
+                  } else {
+                    _showBlockedNotificationsDialog(context);
+                  }
+                },
+              )),
+              r(_navRow(
+                Icons.favorite_outline,
+                'Preview cheer notification',
+                'demo: send a sample scene cheer alert to this device',
+                88,
+                () async {
+                  final ok = await app.sendTestCheerNotification();
+                  if (!context.mounted) return;
+                  if (ok) {
+                    showNote(context, 'scene cheer test sent ✓ check your phone banner');
+                  } else {
+                    _showBlockedNotificationsDialog(context);
+                  }
+                },
+              )),
+              r(_navRow(
+                Icons.person_add_outlined,
+                'Preview friend request notification',
+                'demo: send a sample co-star invite alert to this device',
+                89,
+                () async {
+                  final ok = await app.sendTestInviteNotification();
+                  if (!context.mounted) return;
+                  if (ok) {
+                    showNote(context, 'friend invite test sent ✓ check your phone banner');
                   } else {
                     _showBlockedNotificationsDialog(context);
                   }
