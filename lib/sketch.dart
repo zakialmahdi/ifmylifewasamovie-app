@@ -453,6 +453,132 @@ class HatchPainter extends CustomPainter {
             }
           }
         }
+      case Hatch.diamonds:
+        final path = Path();
+        final step = gap * 1.8;
+        for (var y = 0.0; y < h + step; y += step) {
+          final row = (y / step).floor();
+          final offset = (row % 2 == 0) ? 0.0 : step / 2;
+          for (var x = -step + offset; x < w + step; x += step) {
+            path
+              ..moveTo(x, y - step * 0.42)
+              ..lineTo(x + step * 0.42, y)
+              ..lineTo(x, y + step * 0.42)
+              ..lineTo(x - step * 0.42, y)
+              ..close();
+          }
+        }
+        canvas.drawPath(path, p);
+      case Hatch.scales:
+        final path = Path();
+        final r = gap * 1.25;
+        final stepY = r * 0.85;
+        for (var y = -r; y < h + r; y += stepY) {
+          final row = (y / stepY).round();
+          final offsetX = (row % 2 == 0) ? 0.0 : r;
+          for (var x = -r * 2 + offsetX; x < w + r * 2; x += r * 2) {
+            path.addArc(
+              Rect.fromCircle(center: Offset(x, y + r), radius: r),
+              math.pi,
+              math.pi,
+            );
+          }
+        }
+        canvas.drawPath(path, p);
+      case Hatch.spiral:
+        final path = Path();
+        final center = Offset(w / 2, h / 2);
+        final maxR = math.sqrt(w * w + h * h) / 2;
+        final b = gap / (2 * math.pi);
+        path.moveTo(center.dx, center.dy);
+        for (var theta = 0.0; theta * b < maxR; theta += 0.2) {
+          final r = b * theta;
+          final x = center.dx + r * math.cos(theta);
+          final y = center.dy + r * math.sin(theta);
+          path.lineTo(x, y);
+        }
+        canvas.drawPath(path, p);
+      case Hatch.plus:
+        final path = Path();
+        final pStep = gap * 1.8;
+        final arm = pStep * 0.28;
+        for (var y = pStep / 2; y < h + pStep; y += pStep) {
+          final row = (y / pStep).floor();
+          final offsetX = (row % 2 == 0) ? 0.0 : pStep / 2;
+          for (var x = pStep / 2 + offsetX - pStep; x < w + pStep; x += pStep) {
+            path
+              ..moveTo(x - arm, y)
+              ..lineTo(x + arm, y)
+              ..moveTo(x, y - arm)
+              ..lineTo(x, y + arm);
+          }
+        }
+        canvas.drawPath(path, p);
+      case Hatch.basket:
+        final path = Path();
+        final block = gap * 2.2;
+        final strokeStep = block / 3;
+        for (var y = 0.0; y < h + block; y += block) {
+          final row = (y / block).floor();
+          for (var x = 0.0; x < w + block; x += block) {
+            final col = (x / block).floor();
+            if ((row + col) % 2 == 0) {
+              for (var i = 1; i <= 2; i++) {
+                final sy = y + i * strokeStep;
+                path
+                  ..moveTo(x + 1.2, sy)
+                  ..lineTo(x + block - 1.2, sy);
+              }
+            } else {
+              for (var i = 1; i <= 2; i++) {
+                final sx = x + i * strokeStep;
+                path
+                  ..moveTo(sx, y + 1.2)
+                  ..lineTo(sx, y + block - 1.2);
+              }
+            }
+          }
+        }
+        canvas.drawPath(path, p);
+      case Hatch.sparkles:
+        final path = Path();
+        final sStep = gap * 2.5;
+        final sSize = sStep * 0.38;
+        for (var y = sStep / 2; y < h + sStep; y += sStep) {
+          final row = (y / sStep).floor();
+          final offsetX = (row % 2 == 0) ? 0.0 : sStep / 2;
+          for (var x = sStep / 2 + offsetX - sStep; x < w + sStep; x += sStep) {
+            path
+              ..moveTo(x, y - sSize)
+              ..quadraticBezierTo(x, y, x + sSize, y)
+              ..quadraticBezierTo(x, y, x, y + sSize)
+              ..quadraticBezierTo(x, y, x - sSize, y)
+              ..quadraticBezierTo(x, y, x, y - sSize);
+          }
+        }
+        final sparklePaint = Paint()
+          ..color = Ink.ink.withAlpha(190)
+          ..style = PaintingStyle.fill;
+        canvas.drawPath(path, sparklePaint);
+      case Hatch.dashes:
+        final path = Path();
+        final dGap = gap * 1.6;
+        final dLen = gap * 0.95;
+        for (var y = gap / 2; y < h + dGap; y += dGap) {
+          final row = (y / dGap).floor();
+          final offsetX = (row % 2 == 0) ? 0.0 : dGap / 2;
+          for (var x = -dGap + offsetX; x < w + dGap; x += dGap) {
+            path
+              ..moveTo(x, y)
+              ..lineTo(x + dLen * 0.7, y + dLen * 0.7);
+          }
+        }
+        final dashPaint = Paint()
+          ..color = Ink.ink.withAlpha(190)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.3
+          ..strokeCap = StrokeCap.round;
+        canvas.drawPath(path, dashPaint);
     }
     canvas.restore();
     if (outline) {

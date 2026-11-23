@@ -15,7 +15,7 @@ create table if not exists public.profiles (
   handle text not null unique check (handle = lower(handle)),
   invite_code text not null unique check (invite_code = upper(invite_code)),
   avatar_hatch text not null default 'cross'
-    check (avatar_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker')),
+    check (avatar_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker', 'diamonds', 'scales', 'spiral', 'plus', 'basket', 'sparkles', 'dashes')),
   avatar_url text,
   paper text not null default 'lined'
     check (paper in ('plain', 'lined', 'grid')),
@@ -61,12 +61,12 @@ create table if not exists public.scenes (
   song_artist text not null,
   song_seconds integer not null check (song_seconds >= 0),
   song_art text not null default 'diagonal'
-    check (song_art in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker')),
+    check (song_art in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker', 'diamonds', 'scales', 'spiral', 'plus', 'basket', 'sparkles', 'dashes')),
   song_video_id text,
   song_cover_url text,
   mood_name text not null,
   mood_hatch text not null default 'diagonal'
-    check (mood_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker')),
+    check (mood_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker', 'diamonds', 'scales', 'spiral', 'plus', 'basket', 'sparkles', 'dashes')),
   note text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -86,15 +86,15 @@ alter table public.profiles drop constraint if exists profiles_avatar_hatch_chec
 
 alter table public.scenes
   add constraint scenes_song_art_check
-  check (song_art in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker'));
+  check (song_art in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker', 'diamonds', 'scales', 'spiral', 'plus', 'basket', 'sparkles', 'dashes'));
 
 alter table public.scenes
   add constraint scenes_mood_hatch_check
-  check (mood_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker'));
+  check (mood_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker', 'diamonds', 'scales', 'spiral', 'plus', 'basket', 'sparkles', 'dashes'));
 
 alter table public.profiles
   add constraint profiles_avatar_hatch_check
-  check (avatar_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker'));
+  check (avatar_hatch in ('solid', 'diagonal', 'cross', 'lines', 'dots', 'vertical', 'waves', 'zigzag', 'grid', 'rings', 'checker', 'diamonds', 'scales', 'spiral', 'plus', 'basket', 'sparkles', 'dashes'));
 
 create index if not exists scenes_user_id_scene_date_idx
   on public.scenes (user_id, scene_date desc);

@@ -42,6 +42,13 @@ enum Hatch {
   grid,
   rings,
   checker,
+  diamonds,
+  scales,
+  spiral,
+  plus,
+  basket,
+  sparkles,
+  dashes,
 }
 
 Hatch hatchFromName(String? raw, [Hatch fallback = Hatch.diagonal]) {

@@ -400,6 +400,26 @@ void main() {
     }
   });
 
+  testWidgets('All Hatch swatch patterns paint cleanly without throwing', (tester) async {
+    for (final h in Hatch.values) {
+      expect(hatchFromName(h.name), h);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Row(
+              children: [
+                HatchSwatch(h, size: 34, circle: true),
+                HatchSwatch(h, size: 34, circle: false, outline: false),
+              ],
+            ),
+          ),
+        ),
+      );
+      expect(find.byType(HatchSwatch), findsNWidgets(2));
+    }
+  });
+
   test('AppState saveSceneForDate and saveToday persist entries locally and support dbId', () {
     app.enterDemoMode();
     addTearDown(() => app.demoMode = false);
