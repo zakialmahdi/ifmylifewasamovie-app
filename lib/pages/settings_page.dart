@@ -992,12 +992,42 @@ class _SettingsPageState extends State<SettingsPage> {
     final ok = await app.setDailyReminder(enable);
     if (!context.mounted) return;
     if (!ok) {
-      showNote(context, 'notifications are blocked – allow them in system settings.');
+      _showBlockedNotificationsDialog(context);
     } else if (enable) {
       showNote(context, 'daily reminder set for ${app.reminderTimeLabel} ✓');
     } else {
       showNote(context, 'daily reminder turned off');
     }
+  }
+
+  void _showBlockedNotificationsDialog(BuildContext context) {
+    showSketchDialog<void>(
+      context,
+      (c) => SketchDialogCard(
+        title: 'notifications blocked',
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Notifications are currently blocked by your phone settings. Allow notifications to receive your daily song reminder, scene cheers, and co-star invites.',
+              style: T.body(14),
+            ),
+          ],
+        ),
+        actions: [
+          SketchTextButton('cancel', onTap: () => Navigator.pop(c)),
+          SketchTextButton(
+            'open settings',
+            primary: true,
+            onTap: () {
+              Navigator.pop(c);
+              app.openNotificationSettings();
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _pickReminderTime(BuildContext context) async {
@@ -1148,12 +1178,11 @@ class _SettingsPageState extends State<SettingsPage> {
     if (result == null) return;
     final ok = await app.setReminderTime(result.$1, result.$2);
     if (context.mounted) {
-      showNote(
-        context,
-        ok
-            ? 'reminder moved to ${app.reminderTimeLabel} ✓'
-            : 'notifications are blocked – allow them in system settings.',
-      );
+      if (ok) {
+        showNote(context, 'reminder moved to ${app.reminderTimeLabel} ✓');
+      } else {
+        _showBlockedNotificationsDialog(context);
+      }
     }
   }
 
@@ -1419,21 +1448,22 @@ class _SettingsPageState extends State<SettingsPage> {
                 78,
                 () => _pickReminderTime(context),
               )),
-              r(_navRow(
-                Icons.notifications_active_outlined,
-                'Send test reminder',
-                'preview the daily reminder notification now',
-                785,
-                () async {
-                  final ok = await app.sendTestReminder();
-                  if (context.mounted) {
-                    showNote(
-                      context,
-                      ok ? 'Test reminder sent 🔔' : 'Could not trigger reminder (check notification permissions)',
-                    );
-                  }
-                },
-              )),
+              if (!kIsWeb)
+                r(_navRow(
+                  Icons.notifications_active_outlined,
+                  'Test notification',
+                  'send a test reminder to this device right now',
+                  81,
+                  () async {
+                    final ok = await app.sendTestReminder();
+                    if (!context.mounted) return;
+                    if (ok) {
+                      showNote(context, 'test notification sent ✓ check your phone banner');
+                    } else {
+                      _showBlockedNotificationsDialog(context);
+                    }
+                  },
+                )),
             ],
             r(_ruleRow('Mood prompts', 'little questions before you save', app.moodPrompts, 'prompts', 2)),
             if (!kIsWeb) ...[
@@ -1581,21 +1611,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 'demo: see how the smartphone home screen prompt looks',
                 86,
                 () => showPwaInstallDialog(context),
-              )),
-              r(_navRow(
-                Icons.favorite_border,
-                'Preview scene cheer notification',
-                'demo: test sample cheer banner and alert',
-                87,
-                () async {
-                  final ok = await app.sendTestCheerNotification();
-                  if (context.mounted) {
-                    showNote(
-                      context,
-                      ok ? 'Test cheer sent 🍿' : 'Could not trigger cheer notification',
-                    );
-                  }
-                },
               )),
             ],
 

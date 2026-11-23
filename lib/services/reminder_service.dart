@@ -3,6 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:url_launcher/url_launcher.dart';
 
 /// Schedules the local "pick today's song" daily reminder notifications.
 ///
@@ -195,6 +196,33 @@ class ReminderService {
     } catch (_) {
       return false;
     }
+  }
+
+  /// Opens the system app settings / notification settings page on Android/iOS.
+  Future<bool> openSettings() async {
+    if (kIsWeb) return false;
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        final notifUri = Uri.parse(
+          'intent:#Intent;action=android.settings.APP_NOTIFICATION_SETTINGS;android.provider.extra.APP_PACKAGE=com.zak.ifmylifewasamovie;end',
+        );
+        if (await canLaunchUrl(notifUri)) {
+          return await launchUrl(notifUri);
+        }
+        final appDetailsUri = Uri.parse(
+          'intent:#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;data=package:com.zak.ifmylifewasamovie;end',
+        );
+        if (await canLaunchUrl(appDetailsUri)) {
+          return await launchUrl(appDetailsUri);
+        }
+      } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+        final iosUri = Uri.parse('app-settings:');
+        if (await canLaunchUrl(iosUri)) {
+          return await launchUrl(iosUri);
+        }
+      }
+    } catch (_) {}
+    return false;
   }
 
   static const NotificationDetails _details = NotificationDetails(

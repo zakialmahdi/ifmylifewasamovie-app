@@ -363,7 +363,6 @@ class AppState extends ChangeNotifier {
   RealtimeChannel? _scenesChannel;
   final Set<int> _notifiedInviteIds = <int>{};
   final Set<String> _notifiedCheerKeys = <String>{};
-  bool _hasLoadedCheersBefore = false;
 
   User? user;
   bool demoMode = false;
@@ -1406,8 +1405,8 @@ class AppState extends ChangeNotifier {
       }
     }
 
-    // Register existing cheers on user's own journal scenes.
-    // Historical cheers on first install are recorded without spamming; subsequent new cheers trigger notifications.
+    // Register existing cheers on user's own journal scenes without spamming banners on startup.
+    // Live cheers received while the app is running are handled in real-time by _cheersChannel.
     var newlyDiscoveredCheers = false;
     for (final sid in mySceneIds) {
       final userIds = cheerUserIdsByScene[sid] ?? const [];
@@ -1419,27 +1418,10 @@ class AppState extends ChangeNotifier {
         if (!_notifiedCheerKeys.contains(cheerKey)) {
           _notifiedCheerKeys.add(cheerKey);
           newlyDiscoveredCheers = true;
-
-          if (_hasLoadedCheersBefore) {
-            final prof = profileById[cid];
-            final cheererName = (prof?['display_name'] as String?)?.trim() ?? 'a co-star';
-            final cheererHandle = (prof?['handle'] as String?)?.trim() ?? '';
-            final handlePart = cheererHandle.isNotEmpty ? ' ($cheererHandle)' : '';
-            final dateStr = dayLabel(myEntry.date);
-
-            inAppReminder.value = '$cheererName$handlePart cheered your scene for $dateStr! 🍿';
-            unawaited(ReminderService.instance.showSceneCheerNotification(
-              cheererName: cheererName,
-              cheererHandle: cheererHandle,
-              sceneDate: dateStr,
-              sceneId: sid,
-            ));
-          }
         }
       }
     }
-    if (newlyDiscoveredCheers || !_hasLoadedCheersBefore) {
-      _hasLoadedCheersBefore = true;
+    if (newlyDiscoveredCheers) {
       unawaited(_persistNotifiedCheers());
     }
 
@@ -1664,29 +1646,27 @@ class AppState extends ChangeNotifier {
               final cheererId = newRecord['user_id'] as String?;
 
               if (event == PostgresChangeEvent.insert && sid != null && cheererId != null && cheererId != uid) {
-                final cheerKey = '${sid}_$cheererId';
-                if (!_notifiedCheerKeys.contains(cheerKey)) {
-                  _notifiedCheerKeys.add(cheerKey);
-                  unawaited(_persistNotifiedCheers());
-
-                  DateTime? sceneDate;
-                  final myEntry = _entries.values.where((e) => e.dbId == sid).firstOrNull;
-                  if (myEntry != null) {
-                    sceneDate = myEntry.date;
-                  } else {
-                    try {
-                      final sRow = await _sb.from('scenes').select('id, user_id, scene_date').eq('id', sid).maybeSingle();
-                      if (sRow != null && sRow['user_id'] == uid) {
-                        final dateStr = sRow['scene_date'] as String?;
-                        if (dateStr != null) {
-                          final parts = dateStr.split('-');
-                          sceneDate = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-                        }
+                var myEntry = _entries.values.where((e) => e.dbId == sid).firstOrNull;
+                if (myEntry == null) {
+                  try {
+                    final sRow = await _sb.from('scenes').select('id, user_id, scene_date').eq('id', sid).maybeSingle();
+                    if (sRow != null && sRow['user_id'] == uid) {
+                      final dateStr = sRow['scene_date'] as String?;
+                      if (dateStr != null) {
+                        final parts = dateStr.split('-');
+                        final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+                        myEntry = _entries[dayKey(d)];
                       }
-                    } catch (_) {}
-                  }
+                    }
+                  } catch (_) {}
+                }
 
-                  if (sceneDate != null) {
+                if (myEntry != null) {
+                  final cheerKey = '${sid}_$cheererId';
+                  if (!_notifiedCheerKeys.contains(cheerKey)) {
+                    _notifiedCheerKeys.add(cheerKey);
+                    unawaited(_persistNotifiedCheers());
+
                     String cheererName = 'a co-star';
                     String cheererHandle = '';
                     final friend = friends.where((f) => f.id == cheererId).firstOrNull;
@@ -1703,7 +1683,7 @@ class AppState extends ChangeNotifier {
                       } catch (_) {}
                     }
 
-                    final dateStr = dayLabel(sceneDate);
+                    final dateStr = dayLabel(myEntry.date);
                     final handlePart = cheererHandle.isNotEmpty ? ' ($cheererHandle)' : '';
                     inAppReminder.value = '$cheererName$handlePart cheered your scene for $dateStr! 🍿';
 
@@ -3134,7 +3114,10 @@ class AppState extends ChangeNotifier {
   Future<bool> setDailyReminder(bool enabled) async {
     if (enabled && ReminderService.instance.isSupported) {
       final granted = await ReminderService.instance.requestPermission();
-      if (!granted) return false;
+      if (!granted) {
+        final alreadyEnabled = await ReminderService.instance.notificationsEnabled();
+        if (!alreadyEnabled) return false;
+      }
       await ReminderService.instance.requestExactAlarms();
     }
     dailyReminder = enabled;
@@ -3144,6 +3127,12 @@ class AppState extends ChangeNotifier {
     await _rescheduleReminders();
     return true;
   }
+
+  /// Opens the phone's system notification settings so the user can unblock notifications.
+  Future<bool> openNotificationSettings() => ReminderService.instance.openSettings();
+
+  /// Checks whether notifications are currently allowed by the OS.
+  Future<bool> areNotificationsEnabled() => ReminderService.instance.notificationsEnabled();
 
   /// Returns `false` if notifications are blocked by the OS.
   Future<bool> setReminderTime(int hour, int minute) async {
@@ -3236,27 +3225,6 @@ class AppState extends ChangeNotifier {
     }
     if (!enabled) return false;
     return ReminderService.instance.showNow(body: msg);
-  }
-
-  /// Posts a test cheer notification + shows in-app banner for debugging / settings.
-  Future<bool> sendTestCheerNotification() async {
-    final now = DateTime.now();
-    final dateStr = dayLabel(now);
-    const cheererName = 'jules';
-    const cheererHandle = '@director_jules';
-    inAppReminder.value = '$cheererName ($cheererHandle) cheered your scene for $dateStr! 🍿';
-    if (!ReminderService.instance.isSupported) return true;
-    var enabled = await ReminderService.instance.notificationsEnabled();
-    if (!enabled) {
-      enabled = await ReminderService.instance.requestPermission();
-    }
-    if (!enabled) return false;
-    return ReminderService.instance.showSceneCheerNotification(
-      cheererName: cheererName,
-      cheererHandle: cheererHandle,
-      sceneDate: dateStr,
-      sceneId: 9999,
-    );
   }
 
   Future<void> _loadReminderSettings() async {
@@ -3368,11 +3336,9 @@ class AppState extends ChangeNotifier {
   Future<void> _loadNotifiedCheers() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _hasLoadedCheersBefore = prefs.getBool('cheers_initialized') ?? false;
       final list = prefs.getStringList('notified_cheer_keys');
       if (list != null && list.isNotEmpty) {
         _notifiedCheerKeys.addAll(list);
-        _hasLoadedCheersBefore = true;
         return;
       }
     } catch (_) {}
@@ -3383,9 +3349,8 @@ class AppState extends ChangeNotifier {
         final file = File('${docs.path}/notified_cheers.json');
         if (await file.exists()) {
           final list = jsonDecode(await file.readAsString()) as List<dynamic>?;
-          if (list != null && list.isNotEmpty) {
+          if (list != null) {
             _notifiedCheerKeys.addAll(list.whereType<String>());
-            _hasLoadedCheersBefore = true;
           }
         }
       } catch (_) {}
@@ -3395,7 +3360,6 @@ class AppState extends ChangeNotifier {
   Future<void> _persistNotifiedCheers() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('cheers_initialized', true);
       await prefs.setStringList('notified_cheer_keys', _notifiedCheerKeys.toList());
     } catch (_) {}
 
