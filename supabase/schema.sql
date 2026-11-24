@@ -22,7 +22,7 @@ create table if not exists public.profiles (
   music_source text not null default 'Spotify'
     check (music_source in ('Spotify', 'Apple', 'YouTube')),
   daily_reminder boolean not null default true,
-  mood_prompts boolean not null default true,
+  mood_prompts boolean not null default false,
   privacy_lock boolean not null default false,
   sharing_enabled boolean not null default true,
   sharing_audience text not null default 'all'
@@ -47,7 +47,9 @@ alter table public.profiles
 alter table public.profiles
   add column if not exists daily_reminder boolean not null default true;
 alter table public.profiles
-  add column if not exists mood_prompts boolean not null default true;
+  add column if not exists mood_prompts boolean not null default false;
+alter table public.profiles
+  alter column mood_prompts set default false;
 alter table public.profiles
   add column if not exists custom_moods jsonb not null default '[]'::jsonb;
 

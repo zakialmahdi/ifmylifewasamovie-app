@@ -443,7 +443,7 @@ class AppState extends ChangeNotifier {
   bool dailyReminder = true;
   int reminderHour = 21;
   int reminderMinute = 0;
-  bool moodPrompts = true;
+  bool moodPrompts = false;
   bool privacyLock = false;
   String? _privacyPin;
   bool isPrivacyUnlocked = false;
@@ -664,6 +664,7 @@ class AppState extends ChangeNotifier {
       ..clear()
       ..addAll(const <Mood>[hopeful, restless, dreamy, tired]);
     draftMood = hopeful;
+    moodPrompts = false;
   }
 
   Future<void> signIn({
@@ -984,6 +985,7 @@ class AppState extends ChangeNotifier {
       ..clear()
       ..addAll(const <Mood>[hopeful, restless, dreamy, tired]);
     draftMood = hopeful;
+    moodPrompts = false;
     _seed();
     _seedFriends();
     notifyListeners();
